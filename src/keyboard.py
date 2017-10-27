@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from keyboard_control.msg import drive_param
+from modeltruck_platooning.msg import drive_param
 import curses
 #import signal
 #TIMEOUT = 0.1 # number of seconds your want for timeout

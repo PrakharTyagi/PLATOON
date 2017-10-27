@@ -1,7 +1,9 @@
-# Platooning Project
+# Model Truck Platooning
 
 ### Requirements
 - ROS Kinetic
+
+### Setup
 
 #### 1. Create workspace
 	$ mkdir -p ~/catkin_ws/src
