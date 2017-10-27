@@ -12,4 +12,4 @@
 	$ git clone https://github.com/quilder/platooning-project.git
 	$ cd ..
 	$ catkin_make
-	$ source /devel/setup.bash
+	$ source devel/setup.bash
