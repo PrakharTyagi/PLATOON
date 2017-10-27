@@ -30,5 +30,5 @@ executed in three seperate terminal windows.
 	$ rosrun modeltruck_platooning keyboard.py
 
 Using the argument {1/2} of key_receiver.py a truck can be selected. The arrow
-keys can be used in the keyboard.py terminal to control the vehicle.
-
+keys can be used in the keyboard.py terminal to control the vehicle. Note that
+the values displayed by keyboard.py are raw PWM signals.
