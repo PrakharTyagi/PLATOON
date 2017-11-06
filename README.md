@@ -14,7 +14,7 @@
 #### Clone repository
 
 	$ cd ~/catkin_ws/src
-	$ git clone https://github.com/quilder/modeltruck-platooning.git modeltruck_platooning
+	$ git clone https://github.com/filipmat/PLATOON.git modeltruck_platooning
 	$ cd ..
 	$ catkin_make
 	$ source devel/setup.bash
