@@ -2,23 +2,15 @@
 
 import rospy
 from modeltruck_platooning.msg import drive_param
-
 from socket import *
 import struct
 import time
-
 import sys
-
-
-
-seqNum = 0
-
-firstPack = True
 
 packer = struct.Struct('<IIHhhh') # Format: <timestamp ms> <timestamp us> <seqNum> <velocity> <angle> <gear>
 
 def receiver(vehicle_id):
-	global seqNum, firstPack
+	seqNum = 0
 
 	velocity = 1500
 	angle = 1500
@@ -40,11 +32,12 @@ def receiver(vehicle_id):
 	ms = 0xFFFFFFFF # Send all F in first pack to notify data-reset
 	ns = 0xFFFFFFFF
 	seqNum = 0xFFFF
-	firstPack = False
+	command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
+	client_socket.sendto(command_msg, address)
+	seqNum = (seqNum + 1) % 0xFFFF
 
 	while True:
 		inpt = input('Enter velocity angle gear')
-
 
 		if len(inpt) == 0:
 			vel = velocity
@@ -68,6 +61,7 @@ def receiver(vehicle_id):
 
 		command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
 		client_socket.sendto(command_msg, address)
+		seqNum = (seqNum + 1) % 0xFFFF
 		print('\nVelocity: {}\nAngle: {}\nGear: {}'.format(vel, ang, gr))
 
 		if len(inpt) == 0:
