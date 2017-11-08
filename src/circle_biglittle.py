@@ -18,9 +18,12 @@ packer = struct.Struct('<IIHhhh') # Format: <timestamp ms> <timestamp us> <seqNu
 
 class Truck:
     def __init__(self):
+
         #initialize mocap connection
         self.mocap = Mocap(host = '192.168.1.199', info = 1)
+
         self.mocap_body1 = self.mocap.get_id_from_name('TruckVehicle2')
+
 
     def get_values(self):
         truck_state1 = self.mocap.get_body(self.mocap_body1)
@@ -31,29 +34,30 @@ class Truck:
         return x, y, yaw
 
 
+
 def receiver(vehicle_id):
     global seqNum, firstPack
-    init_velocity = 1500# Initial values. Zero speed and angle.
-    init_angle = 1500
-    init_gear = 60      # first gear
+    velocity = 1500 # Initial values, zero speed and angle.
+    angle = 1500
+    gear = 60   #first gear
 
-    ang_max = 1900      # Maximum angle
+    ang_max = 1900
     ang_min = 1100
-    Ts = 0.25           # Update interval in seconds
-    r_ref = 1           # Circle reference radius
-    k = 400             # Constant in P controller
-    const_vel = 1460    # Constant velocity used
+
+    Ts = 0.25   # Update interval
+    r_ref = 1   # Circle reference radius
+
+    mytruck = Truck()
+
+    vel = velocity # Values that are updated and sent to truck.
+    ang = angle
+    gr = gear
 
     if vehicle_id == 1:
         address = ('192.168.1.194', 2390)
+
     elif vehicle_id == 2:
         address = ('192.168.1.193', 2390)
-
-    mytruck = Truck()   # Mocap truck object
-
-    vel = const_vel     # Values that are updated and sent to truck.
-    ang = init_angle
-    gr = init_gear
 
     client_socket = socket(AF_INET, SOCK_DGRAM)
     client_socket.settimeout(0.1)
@@ -63,19 +67,28 @@ def receiver(vehicle_id):
     seqNum = 0xFFFF
     firstPack = False
 
+
     try:
-        # Loop until interrupted.
         while True:
 
             x, y, yaw = mytruck.get_values() # Get truck data from mocap.
 
-            r = sqrt(x^2 + y^2)     # Distance from center
-            e = r_ref - r           # Distance error
+            r = sqrt(x^2+y^2)
+            e = r_ref - r
 
-            # Controller (if truck outside ref circle, ang < 1500)
-            ang = init_ang + k*e
+            little_ang = 50
+            big_ang = 100
 
-            if ang > ang_max        # Don't go outside angle limits.
+            if (e > 1):
+                ang = ang + big_ang
+            elif (e > 0):
+                ang = ang + little_ang
+            elif (e < 0):
+                ang = ang - little_ang
+            elif (e < -1):
+                ang = ang - big_ang
+
+            if ang > ang_max
                 ang = ang_max
             if ang < ang_min
                 ang = ang_min
@@ -91,8 +104,7 @@ def receiver(vehicle_id):
 
     except KeyboardInterrupt:
         # On ctrl-C reset the speed ang angle to zero.
-        command_msg = packer.pack(
-                        *(ms, ns, seqNum, init_velocity, init_angle, init_gear))
+        command_msg = packer.pack(*(ms,  ns, seqNum, velocity, angle, gear))
         client_socket.sendto(command_msg, address)
 
 
