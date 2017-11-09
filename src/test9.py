@@ -26,10 +26,10 @@ def receiver(vehicle_id):
     gr = gear
 
     if vehicle_id == 1:
-        address = ('192.168.1.194', 2390)
+        address = ('192.168.1.193', 2390)
 
     elif vehicle_id == 2:
-        address = ('192.168.1.193', 2390)
+        address = ('192.168.1.194', 2390)
 
     client_socket = socket(AF_INET, SOCK_DGRAM)
     client_socket.settimeout(0.1)
@@ -42,9 +42,9 @@ def receiver(vehicle_id):
     while True:
         inpt = eval(raw_input('\nEnter velocity\n'))
 
-    	
+
         if inpt != 0:
-			vel = inpt
+            vel = inpt
 
 
         t = time.time()
@@ -52,10 +52,10 @@ def receiver(vehicle_id):
         ns = int((t % 1) * (10**9))
 
         print('\nVelocity: {}\nAngle: {}\nGear: {}'.format(vel, ang, gr))
-        
 
-    	command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
-    	client_socket.sendto(command_msg, address)
+
+        command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
+        client_socket.sendto(command_msg, address)
 
         if len(inpt) == 0:
             break
