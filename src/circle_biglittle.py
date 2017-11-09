@@ -7,6 +7,7 @@ from mocap_source_2 import Mocap
 from socket import *
 import struct
 import time
+import math
 
 import sys
 
@@ -73,7 +74,7 @@ def receiver(vehicle_id):
 
             x, y, yaw = mytruck.get_values() # Get truck data from mocap.
 
-            r = sqrt(x^2+y^2)
+            r = math.sqrt(x^2+y^2)
             e = r_ref - r
 
             little_ang = 50
@@ -88,22 +89,21 @@ def receiver(vehicle_id):
             elif (e < -1):
                 ang = ang - big_ang
 
-            if ang > ang_max
+            if ang > ang_max:
                 ang = ang_max
-            if ang < ang_min
+            if ang < ang_min:
                 ang = ang_min
 
             t = time.time()
             ms = int(t)
             ns = int((t % 1) * (10**9))
 
-        	command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
-        	client_socket.sendto(command_msg, address)
+            command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
+            client_socket.sendto(command_msg, address)
 
             time.sleep(Ts)
 
-    except KeyboardInterrupt:
-        # On ctrl-C reset the speed ang angle to zero.
+    except KeyboardInterrupt: # On ctrl-C reset the speed ang angle to zero.
         command_msg = packer.pack(*(ms,  ns, seqNum, velocity, angle, gear))
         client_socket.sendto(command_msg, address)
 

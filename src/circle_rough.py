@@ -7,6 +7,7 @@ from mocap_source_2 import Mocap
 from socket import *
 import struct
 import time
+import math
 
 import sys
 
@@ -65,27 +66,30 @@ def receiver(vehicle_id):
 
     try:
         # Loop until interrupted.
+
         while True:
 
             x, y, yaw = mytruck.get_values() # Get truck data from mocap.
+            x = 1;
+            y = 1;
 
-            r = sqrt(x^2 + y^2)     # Distance from center
+            r = math.sqrt(x^2 + y^2)     # Distance from center
             e = r_ref - r           # Distance error
 
             # Controller (if truck outside ref circle, ang < 1500)
-            ang = init_ang + k*e
+            ang = int(init_angle + k*e)
 
-            if ang > ang_max        # Don't go outside angle limits.
+            if ang > ang_max:        # Don't go outside angle limits.
                 ang = ang_max
-            if ang < ang_min
+            if ang < ang_min:
                 ang = ang_min
 
             t = time.time()
             ms = int(t)
             ns = int((t % 1) * (10**9))
 
-        	command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
-        	client_socket.sendto(command_msg, address)
+            command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
+            client_socket.sendto(command_msg, address)
 
             time.sleep(Ts)
 
@@ -94,6 +98,7 @@ def receiver(vehicle_id):
         command_msg = packer.pack(
                         *(ms, ns, seqNum, init_velocity, init_angle, init_gear))
         client_socket.sendto(command_msg, address)
+        print('Interrupted')
 
 
 
