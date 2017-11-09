@@ -35,20 +35,20 @@ class Truck:
 def receiver(vehicle_id):
     global seqNum, firstPack
     init_velocity = 1500# Initial values. Zero speed and angle.
-    init_angle = 1500
+    init_angle = 1100
     init_gear = 60      # first gear
 
     ang_max = 1900      # Maximum angle
     ang_min = 1100
-    Ts = 0.25           # Update interval in seconds
-    r_ref = 1           # Circle reference radius
-    k = 400             # Constant in P controller
+    Ts = 0.05           # Update interval in seconds
+    r_ref = 1.5           # Circle reference radius
+    k = 350             # Constant in P controller
     const_vel = 1460    # Constant velocity used
 
     if vehicle_id == 1:
-        address = ('192.168.1.194', 2390)
-    elif vehicle_id == 2:
         address = ('192.168.1.193', 2390)
+    elif vehicle_id == 2:
+        address = ('192.168.1.194', 2390)
 
     mytruck = Truck()   # Mocap truck object
 
@@ -70,12 +70,10 @@ def receiver(vehicle_id):
         while True:
 
             x, y, yaw = mytruck.get_values() # Get truck data from mocap.
-            x = 1;
-            y = 1;
-
-            r = math.sqrt(x^2 + y^2)     # Distance from center
+	    a = x*x + y*y
+            r = math.sqrt(a)     # Distance from center
             e = r_ref - r           # Distance error
-
+	    print(r)
             # Controller (if truck outside ref circle, ang < 1500)
             ang = int(init_angle + k*e)
 

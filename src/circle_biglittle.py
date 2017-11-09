@@ -55,10 +55,10 @@ def receiver(vehicle_id):
     gr = gear
 
     if vehicle_id == 1:
-        address = ('192.168.1.194', 2390)
+        address = ('192.168.1.193', 2390)
 
     elif vehicle_id == 2:
-        address = ('192.168.1.193', 2390)
+        address = ('192.168.1.194', 2390)
 
     client_socket = socket(AF_INET, SOCK_DGRAM)
     client_socket.settimeout(0.1)
@@ -71,15 +71,19 @@ def receiver(vehicle_id):
 
     try:
         while True:
-
+	    
             x, y, yaw = mytruck.get_values() # Get truck data from mocap.
-
-            r = math.sqrt(x^2+y^2)
+	    
+	    #print(math.sqrt(y))
+            a = x*x + y*y
+	    
+	    r = math.sqrt(a)
             e = r_ref - r
-
+	    print(e)
+	    
             little_ang = 50
             big_ang = 100
-
+	    
             if (e > 1):
                 ang = ang + big_ang
             elif (e > 0):
@@ -88,7 +92,9 @@ def receiver(vehicle_id):
                 ang = ang - little_ang
             elif (e < -1):
                 ang = ang - big_ang
-
+	    else:
+                ang = ang
+	    print(ang)
             if ang > ang_max:
                 ang = ang_max
             if ang < ang_min:
@@ -98,7 +104,7 @@ def receiver(vehicle_id):
             ms = int(t)
             ns = int((t % 1) * (10**9))
 
-            command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
+            command_msg = packer.pack(*(ms,  ns, seqNum, 1460, ang, gr))
             client_socket.sendto(command_msg, address)
 
             time.sleep(Ts)
