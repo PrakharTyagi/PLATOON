@@ -18,19 +18,19 @@ packer = struct.Struct('<IIHhhh') # Format: <timestamp ms> <timestamp us> <seqNu
 
 class Truck:
     def __init__(self):
-        
+
         #initialize mocap connection
         self.mocap = Mocap(host = '192.168.1.199', info = 1)
-        
+
         self.mocap_body1 = self.mocap.get_id_from_name('TruckVehicle2')
-        
+
 
     def get_values(self):
         truck_state1 = self.mocap.get_body(self.mocap_body1)
         x = truck_state1['x']
         y = truck_state1['y']
         yaw = truck_state1['yaw']
-		
+
         return x, y, yaw
 
 
@@ -40,9 +40,9 @@ def receiver(vehicle_id):
     velocity = 1500
     angle = 1500
     gear = 60   #first gear
-    
+
     mytruck = Truck()
-    
+
     vel = velocity
     ang = angle
     gr = gear
@@ -64,7 +64,7 @@ def receiver(vehicle_id):
     while True:
         inpt = eval(raw_input('\nEnter\n'))
 
-    	
+
         if inpt == 0:
 	    break
         if inpt == 1:
@@ -79,7 +79,7 @@ def receiver(vehicle_id):
         #ns = int((t % 1) * (10**9))
 
         #print('\nVelocity: {}\nAngle: {}\nGear: {}'.format(vel, ang, gr))
-        
+
 
     	#command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
     	#client_socket.sendto(command_msg, address)
