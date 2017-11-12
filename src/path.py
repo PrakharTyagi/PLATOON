@@ -5,9 +5,9 @@
 # TODO handle parametrization of path?
 
 import rospy
-import matplotlib.pyplot as plt
 from Tkinter import *
 import os
+import math
 
 
 class Path:
@@ -15,7 +15,6 @@ class Path:
     def __init__(self):
         self.path = []
         self.newpath = []
-        # TODO add variables characterizing the area the path is in?
 
 
     def save(self, filename):
@@ -80,11 +79,74 @@ class Path:
         self.path = newlist
 
 
-    def visualize(self):
-        """Plots the path."""
-        xlist, ylist = self.split()
-        plt.plot(xlist, ylist, xlist, ylist, 'ro')
-        plt.show()
+    def visualize(self, realh, realw):
+        """Plots the path in a Tkinter window. Arguments are the width and
+        height of the real path area in meters."""
+        root = Tk()
+        h = 600     # Tkinter canvas height.
+        w = 600
+
+        s_frame = Frame(root, background = 'aquamarine')
+        s_frame.pack()
+
+        canv_frame = Frame(root)
+        canv_frame.pack(in_ = s_frame, side=LEFT)
+
+        canv = Canvas(root, width = w, height = h, background='#FFFFFF',
+                    borderwidth = 0, relief = RAISED)
+        canv.pack(in_ = canv_frame)
+        #canv.configure(scrollregion = (-w/2, -h/2, w/2, h/2))
+        canv.bind('<Button-1>', self.redraw)
+
+        right_frame = Frame(root, background = 'aquamarine')
+        right_frame.pack(in_ = s_frame, side = RIGHT, anchor = N)
+        quit_button = Button(root, text = 'Quit', command = quit,
+                            width = 10, background = 'coral',
+                            activebackground = 'red')
+        quit_button.pack(in_ = right_frame)
+
+        canv.create_line(int(w/2), int(h/2), int(w/2), int(h/2) - 50,
+                        width = 2, arrow = 'last')
+        canv.create_line(int(w/2), int(h/2), int(w/2) + 50, int(h/2),
+                        width = 2, arrow = 'last')
+
+        canv.create_text(2, 2, text = '({}, {})'.format( -realw, realh),
+                            anchor = 'nw')
+        canv.create_text(2, h - 2, text = '({}, {})'.format(-realw, -realh),
+                            anchor = 'sw')
+        canv.create_text(w - 2, h - 2, text = '({}, {})'.format(realw, -realh),
+                            anchor = 'se')
+        canv.create_text(w - 2, 2, text = '({}, {})'.format(realw, realh),
+                            anchor = 'ne')
+
+        try:
+            for i in range(len(self.path)):
+                xy1 = self.pixelv(i - 1, realh, realw, h, w)
+                xy2 = self.pixelv(i, realh, realw, h, w)
+                canv.create_line(xy1[0], xy1[1], xy2[0], xy2[1],
+                                    fill = 'blue', width = 2)
+                canv.create_oval(xy2[0] - 3, xy2[1] - 3,
+                                        xy2[0] + 3, xy2[1] + 3, fill = 'green')
+        except Exception as e:
+            print(e)
+
+        root.mainloop()
+
+
+    def pixelv(self, index, hreal, wreal, hpixel, wpixel):
+        """Transforms the path in real coordinates to pixel coordinates."""
+        try:
+            xpixel = int(wpixel/wreal * self.path[index][0] + wpixel/2)
+            ypixel = int(- hpixel/hreal * self.path[index][1] + hpixel/2)
+            return [xpixel, ypixel]
+        except:
+            return [0, 0]
+
+    def quit():
+        root.quit()
+
+    def redraw(self, event):
+        pass
 
 
     def split(self):
@@ -132,20 +194,37 @@ class Path:
     def get_tangent(self, index):
         """Returns a unit vector approximating the tangent direction at the
         given index"""
-        pass
+        try:
+            vec = [self.path[index + 1][0] - self.path[index - 1][0],
+                    self.path[index + 1][1] - self.path[index - 1][1]]
+            vec_norm = math.sqrt(vec[0]**2 + vec[1]**2)
+            vec[0] = vec[0]/vec_norm
+            vec[1] = vec[1]/vec_norm
+            return vec
+        except Exception as e:
+            print('\nError when calculating tangent: '),
+            print(e)
+            return [0, 0]
 
 
     def get_derivative(self, index):
         """Returns a approximation of the derivative of y w.r.t. x at the
         given index."""
-        pass
+        try:
+            return (self.path[index + 1][1] - self.path[index - 1][1])/(
+                    self.path[index + 1][0] - self.path[index - 1][0])
+        except Exception as e:
+            print('\nError when calculating derivative: '),
+            print(e)
+            return 0
 
 
 
 if __name__ == '__main__':
     pt = Path()
-    pt.load('hej3.txt')
-    pt.visualize()
+    pt.load('hej2.txt')
+    pt.visualize(4, 4)
+    #pt.visualize()
     #pt.printp()
     #pt.interpolate()
     #pt.visualize()
