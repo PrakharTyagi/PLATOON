@@ -6,36 +6,43 @@
 
 import rospy
 import matplotlib.pyplot as plt
-
 from Tkinter import *
+import os
 
 
 class Path:
     """Class for a path. Path is described by a series of coordinate pairs."""
     def __init__(self):
         self.path = []
+        self.newpath = []
         # TODO add variables characterizing the area the path is in?
 
 
     def save(self, filename):
-        """Saves path to file."""
-        fl = open(filename, 'w')
+        """Saves path to file. Writes each line on the format x,y"""
+        try:
+            __location__ = os.path.realpath(os.path.join(os.getcwd(),
+                                            os.path.dirname(__file__)))
+            fl = open(os.path.join(__location__, filename), 'w');
 
-        if len(self.path) == 0:
-            print('\nWarning: writing empty path to file.')
+            for xy in self.path:
+                fl.write('{},{}\n'.format(xy[0], xy[1]))
 
-        for xy in self.path:
-            fl.write('{},{}\n'.format(xy[0], xy[1]))
+            fl.close()
+            print('Saved path as {}'.format(filename))
 
-        fl.close()
+        except Exception as e:
+            print('\nError when saving path to file: '),
+            print(e)
 
 
     def load(self, filename):
-        """Loads path from file."""
+        """Loads path from file. Assumes lines to be on the format x,y"""
         self.path = []
-
         try:
-            fl = open(filename, 'r')
+            __location__ = os.path.realpath(os.path.join(os.getcwd(),
+                                            os.path.dirname(__file__)))
+            fl = open(os.path.join(__location__, filename), 'r');
 
             for line in fl:
                 line_list = line.strip().split(',')
@@ -46,7 +53,7 @@ class Path:
                     self.path.append((x, y))
 
         except Exception as e:
-            print('\nError when loading file: '),
+            print('\nError when loading path from file: '),
             print(e)
 
         try:
@@ -54,62 +61,38 @@ class Path:
         except:
             pass
 
+
     def interpolate(self):
-        """Interpolates the path. Returns a denser list."""
-        pass
+        """Interpolates the path. Returns a denser list that has added one set
+        of intermediate points to the original path."""
+        N = len(self.path)
+        interlist = [[0, 0] for i in range(N - 1)]
+        for i in range(N - 1):
+            interlist[i][0] = (self.path[i][0] + self.path[i + 1][0])/2
+            interlist[i][1] = (self.path[i][1] + self.path[i + 1][1])/2
+
+        newlist = [[0, 0] for i in range(2*N - 1)]
+        for i in range(N - 1):
+            newlist[i*2] = self.path[i]
+            newlist[i*2 + 1] = interlist[i]
+        newlist[2*N - 2] = self.path[N - 1]
+
+        self.path = newlist
 
 
     def visualize(self):
         """Plots the path."""
-        x, y = self.split()
-        plt.plot(x, y)
+        xlist, ylist = self.split()
+        plt.plot(xlist, ylist, xlist, ylist, 'ro')
         plt.show()
-
-
-    def visualize2(self):
-        root = Tk()
-
-        s_frame = Frame(root, background = 'aquamarine')
-        s_frame.pack()
-
-        canv_frame = Frame(root)
-        canv_frame.pack(in_ = s_frame, side=LEFT)
-
-        canv = Canvas(root, width = 500, height = 500, background='#FFFFFF',
-                    borderwidth = 5, relief = RAISED)
-        canv.pack(in_ = canv_frame)
-        canv.configure(scrollregion = (-250, -250, 250, 250))
-        canv.bind('<Button-1>', self.redraw)
-
-        right_frame = Frame(root, background = 'aquamarine')
-        right_frame.pack(in_ = s_frame, side = RIGHT, anchor = N)
-        quit_button = Button(root, text = 'Quit', command = quit,
-                            width = 10, background = 'coral',
-                            activebackground = 'red')
-        quit_button.pack(in_ = right_frame)
-
-        while True:
-            root.update()
-            inpt = eval(raw_input('\nEnter 0 to exit: '))
-            if inpt == 0 or 'normal' != root.state():
-                root.quit()
-                break
-            else:
-                pass
-
-    def quit():
-        root.quit()
-
-    def redraw(self, event):
-        pass
 
 
     def split(self):
         """Returns two lists, one containing x and one containing y."""
-        x = [a for a,b in self.path]
-        y = [b for a,b in self.path]
+        xlist = [a for a,b in self.path]
+        ylist = [b for a,b in self.path]
 
-        return x, y
+        return xlist, ylist
 
 
     def printp(self):
@@ -123,17 +106,48 @@ class Path:
         try:
             x = self.path[index][0]
             y = self.path[index][1]
-            return x, y
+            return [x, y]
 
         except Exception as e:
             print('\nError when retrieving x and y: '),
             print(e)
-            return 0, 0
+            return [0, 0]
+
+
+    def get_closest(self, xy):
+        """Return the closest x and y of the path to the given coordinates,
+        as well as the index of the path list it is found on."""
+        try:
+            closest = min(self.path,
+                        key = lambda a: (a[0] - xy[0])**2 + (a[1] - xy[1])**2)
+            index = self.path.index(closest)
+            return index, closest
+
+        except Exception as e:
+            print('\nError when retrieving closest point on path: '),
+            print(e)
+            return 0, [0, 0]
+
+
+    def get_tangent(self, index):
+        """Returns a unit vector approximating the tangent direction at the
+        given index"""
+        pass
+
+
+    def get_derivative(self, index):
+        """Returns a approximation of the derivative of y w.r.t. x at the
+        given index."""
+        pass
 
 
 
 if __name__ == '__main__':
     pt = Path()
-    pt.load('hej1.txt')
+    pt.load('hej3.txt')
+    pt.visualize()
+    #pt.printp()
+    #pt.interpolate()
+    #pt.visualize()
+
     pt.save('hej2.txt')
-    #pt.visualize2()
