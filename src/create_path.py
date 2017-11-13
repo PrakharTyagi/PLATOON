@@ -130,10 +130,11 @@ class NewPath:
 
 if __name__ == '__main__':
 
-    filename = 'hej2.txt'
+    filename = 'hej1.txt'
 
     root = Tk()
 
     newpath = NewPath(root, filename, 4, 4)
+
     root.title('Record path')
     root.mainloop()

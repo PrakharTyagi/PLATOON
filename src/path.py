@@ -14,7 +14,7 @@ class Path:
     """Class for a path. Path is described by a series of coordinate pairs."""
     def __init__(self):
         self.path = []
-        self.newpath = []
+        self.lp = True
 
 
     def save(self, filename):
@@ -79,7 +79,7 @@ class Path:
         self.path = newlist
 
 
-    def visualize(self, realh, realw):
+    def plot(self, realh, realw):
         """Plots the path in a Tkinter window. Arguments are the width and
         height of the real path area in meters."""
         root = Tk()
@@ -95,12 +95,10 @@ class Path:
         canv = Canvas(root, width = w, height = h, background='#FFFFFF',
                     borderwidth = 0, relief = RAISED)
         canv.pack(in_ = canv_frame)
-        #canv.configure(scrollregion = (-w/2, -h/2, w/2, h/2))
-        canv.bind('<Button-1>', self.redraw)
 
         right_frame = Frame(root, background = 'aquamarine')
         right_frame.pack(in_ = s_frame, side = RIGHT, anchor = N)
-        quit_button = Button(root, text = 'Quit', command = quit,
+        quit_button = Button(root, text = 'Close', command = self.quitm,
                             width = 10, background = 'coral',
                             activebackground = 'red')
         quit_button.pack(in_ = right_frame)
@@ -119,6 +117,8 @@ class Path:
         canv.create_text(w - 2, 2, text = '({}, {})'.format(realw, realh),
                             anchor = 'ne')
 
+        root.protocol("WM_DELETE_WINDOW", self.quitm)
+
         try:
             for i in range(len(self.path)):
                 xy1 = self.pixelv(i - 1, realh, realw, h, w)
@@ -130,7 +130,12 @@ class Path:
         except Exception as e:
             print(e)
 
-        root.mainloop()
+        while self.lp:
+            try:
+                if 'normal' == root.state():
+                    root.update()
+            except:
+                pass
 
 
     def pixelv(self, index, hreal, wreal, hpixel, wpixel):
@@ -142,11 +147,8 @@ class Path:
         except:
             return [0, 0]
 
-    def quit():
-        root.quit()
-
-    def redraw(self, event):
-        pass
+    def quitm(self):
+        self.lp = False
 
 
     def split(self):
@@ -219,14 +221,31 @@ class Path:
             return 0
 
 
+    def get_angle(self, index):
+        """Returns the angle of the tangent of the path in radians."""
+
+        return 0
+
+
+    def gen_circle_path(self, radius, points):
+        """Generates a circle path with specified radius and number of
+        points."""
+        newpath = []
+        for i in range(points):
+            x = radius*math.cos(2*math.pi*i/points)
+            y = radius*math.sin(2*math.pi*i/points)
+            newpath.append([x, y])
+
+        self.path = newpath
+
 
 if __name__ == '__main__':
     pt = Path()
-    pt.load('hej2.txt')
-    pt.visualize(4, 4)
-    #pt.visualize()
+    pt.gen_circle_path(1.4, 100)
+    #pt.printp()
+    #pt.load('hej2.txt')
+    pt.plot(4, 4)
     #pt.printp()
     #pt.interpolate()
-    #pt.visualize()
 
     pt.save('hej2.txt')
