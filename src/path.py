@@ -67,9 +67,22 @@ class Path:
             pass
 
 
+    def gen_circle_path(self, radius, points):
+        """Generates a circle path with specified radius and number of
+        points."""
+        newpath = []
+        for i in range(points):
+            x = radius*math.cos(2*math.pi*i/points)
+            y = radius*math.sin(2*math.pi*i/points)
+            newpath.append([x, y])
+
+        self.path = newpath
+        self.calc_gammas()
+
+
     def interpolate(self):
-        """Interpolates the path. Returns a denser list that has added one set
-        of intermediate points to the original path."""
+        """Interpolates the path. Returns a denser list that has added one
+        set of intermediate points to the original path."""
         N = len(self.path)
         interlist = [[0, 0] for i in range(N - 1)]
         for i in range(N - 1):
@@ -147,7 +160,8 @@ class Path:
 
 
     def pixelv(self, index, hreal, wreal, hpixel, wpixel):
-        """Transforms the path in real coordinates to pixel coordinates."""
+        """Used internally to transform the path from real coordinates
+        to pixel coordinates."""
         try:
             xpixel = int(wpixel/wreal * self.path[index][0] + wpixel/2)
             ypixel = int(- hpixel/hreal * self.path[index][1] + hpixel/2)
@@ -217,43 +231,8 @@ class Path:
             return [0, 0]
 
 
-    def get_derivative(self, index):
-        """Returns a approximation of the derivative of y w.r.t. x at the
-        given index."""
-        try:
-            return (self.path[index + 1][1] - self.path[index - 1][1])/(
-                    self.path[index + 1][0] - self.path[index - 1][0])
-        except Exception as e:
-            print('\nError when calculating derivative: '),
-            print(e)
-            return 0
-
-
-    def get_angle(self, index):
-        """Returns the angle of the tangent of the path in radians."""
-
-        return 0
-
-
-    def gen_circle_path(self, radius, points):
-        """Generates a circle path with specified radius and number of
-        points."""
-        newpath = []
-        for i in range(points):
-            x = radius*math.cos(2*math.pi*i/points)
-            y = radius*math.sin(2*math.pi*i/points)
-            newpath.append([x, y])
-
-        self.path = newpath
-        self.calc_gammas()
-
-    def calc_gammas(self):
-        """Used by class to calculate gammas."""
-        self.calc_gamma()
-        self.calc_gammap()
-        self.calc_gammapp()
-
     def get_gamma(self, index):
+        """Returns gamma at the given index."""
         try:
             return self.gamma[index]
         except Exception as e:
@@ -261,7 +240,9 @@ class Path:
             print(e)
             return 0
 
+
     def get_gammap(self, index):
+        """Returns gamma prime at the given index."""
         try:
             return self.gammap[index]
         except Exception as e:
@@ -269,7 +250,9 @@ class Path:
             print(e)
             return 0
 
+
     def get_gammapp(self, index):
+        """Returns gamma prime prime at the given index."""
         try:
             return self.gammapp[index]
         except Exception as e:
@@ -278,27 +261,38 @@ class Path:
             return 0
 
 
+    def calc_gammas(self):
+        """Used internally by class to calculate gammas."""
+        self.calc_gamma()
+        self.calc_gammap()
+        self.calc_gammapp()
+
+
     def calc_gamma(self):
-        """Used by class to calculate gamma values and save them."""
+        """Used internally by class to calculate gamma values and save
+        them."""
         self.gamma = [0 for i in range(len(self.path))]
 
         for i in range(len(self.path)):
             x1 = self.path[i - 1][0]
             y1 = self.path[i - 1][1]
-            if i == len(self.path) - 1:
+            if i == len(self.path) - 1: # At end of list, grab first of list.
                 x2 = self.path[0][0]
                 y2 = self.path[0][1]
             else:
                 x2 = self.path[i + 1][0]
                 y2 = self.path[i + 1][1]
+
             try:
                 rad = math.atan((y2 - y1)/(x2 - x1))
-                if x2 < x1:
-                    if y2 > y1:
-                        rad = rad - math.pi
-                    else:
+
+                if x2 < x1:     # Calculate 3rd and 4th quadrant correctly.
                         rad = rad + math.pi
+                elif y2 < y1:   # Make angles in range 0 to 2 pi.
+                    rad = rad + 2*math.pi
+
                 self.gamma[i] = rad
+
             except ZeroDivisionError:
                 if y2 > y1:
                     self.gamma[i] = math.pi/2
@@ -306,9 +300,8 @@ class Path:
                     self.gamma[i] = 3*math.pi/2
 
 
-
     def calc_gammap(self):
-        """Used by class to calculate gamma prime."""
+        """Used internally by class to calculate gamma prime."""
         self.gammap = [0 for i in range(len(self.path))]
 
         for i in range(len(self.gamma)):
@@ -316,22 +309,28 @@ class Path:
             y1 = self.path[i - 1][1]
             x2 = self.path[i][0]
             y2 = self.path[i][1]
-            if i == len(self.path) - 1:
+            if i == len(self.path) - 1: # At end of list, grab first of list.
                 x3 = self.path[0][0]
                 y3 = self.path[0][1]
-                self.gammap[i] = (self.gamma[0] - self.gamma[i - 1]) / (
-                                math.sqrt((x3 - x2)**2 + (y3 - y2)**2) + math.sqrt(
-                                (x2 - x1)**2 + (y2 - y1)**2))
+                gammap3 = self.gamma[0]
             else:
                 x3 = self.path[i + 1][0]
                 y3 = self.path[i + 1][1]
+                gammap3 = self.gamma[i + 1]
 
-                self.gammap[i] = (self.gamma[i + 1] - self.gamma[i - 1]) / (
-                                math.sqrt((x3 - x2)**2 + (y3 - y2)**2) + math.sqrt(
-                                (x2 - x1)**2 + (y2 - y1)**2))
+            gamma_diff = gammap3 - self.gamma[i - 1]    # Make sure difference
+            while gamma_diff > 2*math.pi:               # is between 0 and 2 pi.
+                gamma_diff = gamma_digg - 2*math.pi
+            while gamma_diff < 0:
+                gamma_diff = gamma_diff + 2*math.pi
+
+            self.gammap[i] = gamma_diff / (
+                            math.sqrt((x3 - x2)**2 + (y3 - y2)**2) + math.sqrt(
+                            (x2 - x1)**2 + (y2 - y1)**2))
+
 
     def calc_gammapp(self):
-        """Used by class to calculate gamma prime prime."""
+        """Used internally by class to calculate gamma prime prime."""
         self.gammapp = [0 for i in range(len(self.path))]
 
         for i in range(len(self.gamma)):
@@ -342,23 +341,23 @@ class Path:
             if i == len(self.path) - 1:
                 x3 = self.path[0][0]
                 y3 = self.path[0][1]
-                self.gammapp[i] = (self.gammap[0] - self.gammap[i - 1]) / (
-                            math.sqrt((x3 - x2)**2 + (y3 - y2)**2) + math.sqrt(
-                            (x2 - x1)**2 + (y2 - y1)**2))
+                gammap3 = self.gammap[0]
+
             else:
                 x3 = self.path[i + 1][0]
                 y3 = self.path[i + 1][1]
+                gammap3 = self.gammap[i + 1]
 
-                self.gammapp[i] = (self.gammap[i + 1] - self.gammap[i - 1]) / (
-                            math.sqrt((x3 - x2)**2 + (y3 - y2)**2) + math.sqrt(
-                            (x2 - x1)**2 + (y2 - y1)**2))
+            self.gammapp[i] = (gammap3 - self.gammap[i - 1]) / (
+                        math.sqrt((x3 - x2)**2 + (y3 - y2)**2) + math.sqrt(
+                        (x2 - x1)**2 + (y2 - y1)**2))
 
 
 
 if __name__ == '__main__':
     pt = Path()
-    pt.gen_circle_path(1, 100)
-    #a = pt.get_gamma(4)
+    pt.gen_circle_path(1, 40)
+
     #pt.printp()
     #pt.load('hej2.txt')
     #pt.plot(4, 4)
