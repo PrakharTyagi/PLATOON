@@ -2,7 +2,7 @@
 
 # File to test values of velocity, angle and speed. Program runs and prompts
 # for values on the form ang vel gear. Can enter only one, two or all. Sends to
-# truck when values are entered. Run with arg 1 or 2 depending on truck. 
+# truck when values are entered. Run with arg 1 or 2 depending on truck.
 
 import rospy
 from modeltruck_platooning.msg import drive_param
@@ -30,9 +30,9 @@ def receiver(vehicle_id):
     gr = init_gear
 
     if vehicle_id == 1:
-        address = ('192.168.1.194', 2390)
-    elif vehicle_id == 2:
         address = ('192.168.1.193', 2390)
+    elif vehicle_id == 2:
+        address = ('192.168.1.194', 2390)
 
     client_socket = socket(AF_INET, SOCK_DGRAM)
     client_socket.settimeout(0.1)
@@ -49,7 +49,7 @@ def receiver(vehicle_id):
             inpt = raw_input('\nEnter velocity angle gear\n')
 
             if len(inpt) != 0:
-    			inpt_list = inpt.split(' ')
+                inpt_list = inpt.split(' ')
                 vel = int(inpt_list[0])
 
                 if len(inpt) > 1:
@@ -65,8 +65,8 @@ def receiver(vehicle_id):
                 ms = int(t)
                 ns = int((t % 1) * (10**9))
 
-            	command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
-            	client_socket.sendto(command_msg, address)
+                command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
+                client_socket.sendto(command_msg, address)
 
             else:
                 # Reset truck values and quit loop.

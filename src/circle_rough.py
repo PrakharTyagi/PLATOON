@@ -34,16 +34,17 @@ class Truck:
 
 def receiver(vehicle_id):
     global seqNum, firstPack
-    init_velocity = 1500# Initial values. Zero speed and angle.
-    init_angle = 1100
+    init_velocity = 1500# Initial values.
+    init_angle = 1500
     init_gear = 60      # first gear
 
     ang_max = 1900      # Maximum angle
     ang_min = 1100
     Ts = 0.05           # Update interval in seconds
-    r_ref = 1.5           # Circle reference radius
+    r_ref = 1.5         # Circle reference radius
     k = 350             # Constant in P controller
     const_vel = 1460    # Constant velocity used
+    ref_angle = 1200    # Reference angle
 
     if vehicle_id == 1:
         address = ('192.168.1.193', 2390)
@@ -53,7 +54,7 @@ def receiver(vehicle_id):
     mytruck = Truck()   # Mocap truck object
 
     vel = const_vel     # Values that are updated and sent to truck.
-    ang = init_angle
+    ang = ref_angle
     gr = init_gear
 
     client_socket = socket(AF_INET, SOCK_DGRAM)
@@ -66,16 +67,15 @@ def receiver(vehicle_id):
 
     try:
         # Loop until interrupted.
-
         while True:
 
             x, y, yaw = mytruck.get_values() # Get truck data from mocap.
-	    a = x*x + y*y
-            r = math.sqrt(a)     # Distance from center
+            a = x*x + y*y
+            r = math.sqrt(a)        # Distance from center
             e = r_ref - r           # Distance error
-	    print(r)
+
             # Controller (if truck outside ref circle, ang < 1500)
-            ang = int(init_angle + k*e)
+            ang = int(ref_angle + k*e)
 
             if ang > ang_max:        # Don't go outside angle limits.
                 ang = ang_max
@@ -92,12 +92,11 @@ def receiver(vehicle_id):
             time.sleep(Ts)
 
     except KeyboardInterrupt:
-        # On ctrl-C reset the speed ang angle to zero.
+        # On ctrl-C reset the speed and angle to zero.
         command_msg = packer.pack(
                         *(ms, ns, seqNum, init_velocity, init_angle, init_gear))
         client_socket.sendto(command_msg, address)
         print('Interrupted')
-
 
 
 if __name__ == '__main__':

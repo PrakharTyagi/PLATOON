@@ -19,12 +19,9 @@ packer = struct.Struct('<IIHhhh') # Format: <timestamp ms> <timestamp us> <seqNu
 
 class Truck:
     def __init__(self):
-
         #initialize mocap connection
         self.mocap = Mocap(host = '192.168.1.199', info = 1)
-
         self.mocap_body1 = self.mocap.get_id_from_name('TruckVehicle2')
-
 
     def get_values(self):
         truck_state1 = self.mocap.get_body(self.mocap_body1)
@@ -33,7 +30,6 @@ class Truck:
         yaw = truck_state1['yaw']
 
         return x, y, yaw
-
 
 
 def receiver(vehicle_id):
@@ -68,22 +64,18 @@ def receiver(vehicle_id):
     seqNum = 0xFFFF
     firstPack = False
 
-
     try:
         while True:
-	    
+
             x, y, yaw = mytruck.get_values() # Get truck data from mocap.
-	    
-	    #print(math.sqrt(y))
             a = x*x + y*y
-	    
-	    r = math.sqrt(a)
+            r = math.sqrt(a)
             e = r_ref - r
-	    print(e)
-	    
+            print(e)
+
             little_ang = 50
             big_ang = 100
-	    
+
             if (e > 1):
                 ang = ang + big_ang
             elif (e > 0):
@@ -92,9 +84,9 @@ def receiver(vehicle_id):
                 ang = ang - little_ang
             elif (e < -1):
                 ang = ang - big_ang
-	    else:
+            else:
                 ang = ang
-	    print(ang)
+
             if ang > ang_max:
                 ang = ang_max
             if ang < ang_min:
