@@ -49,13 +49,16 @@ def receiver(vehicle_id):
             inpt = raw_input('\nEnter velocity angle gear\n')
 
             if len(inpt) != 0:
+
                 inpt_list = inpt.split(' ')
                 vel = int(inpt_list[0])
 
-                if len(inpt) > 1:
+                if len(inpt_list) > 1:
+
                     ang = int(inpt_list[1])
 
-                    if len(inpt) > 2:
+
+                    if len(inpt_list) > 2:
                         gr = int(inpt_list[2])
 
                 print(
@@ -69,6 +72,7 @@ def receiver(vehicle_id):
                 client_socket.sendto(command_msg, address)
 
             else:
+
                 # Reset truck values and quit loop.
                 command_msg = packer.pack(
                                 *(ms, ns, seqNum, init_velocity, init_angle,

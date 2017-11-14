@@ -3,6 +3,7 @@
 # Class for describing a path.
 
 # TODO handle parametrization of path?
+# gamma and gamma derivative (curvature?)
 
 import rospy
 from Tkinter import *
@@ -14,6 +15,9 @@ class Path:
     """Class for a path. Path is described by a series of coordinate pairs."""
     def __init__(self):
         self.path = []
+        self.gamma = []
+        self.gammap = []
+        self.gammapp = []
         self.lp = True
 
 
@@ -50,6 +54,8 @@ class Path:
                     x = float(line_list[0])
                     y = float(line_list[1])
                     self.path.append((x, y))
+
+            self.calc_gammas()
 
         except Exception as e:
             print('\nError when loading path from file: '),
@@ -136,6 +142,8 @@ class Path:
                     root.update()
             except:
                 pass
+
+        root.destroy()
 
 
     def pixelv(self, index, hreal, wreal, hpixel, wpixel):
@@ -237,15 +245,125 @@ class Path:
             newpath.append([x, y])
 
         self.path = newpath
+        self.calc_gammas()
+
+    def calc_gammas(self):
+        """Used by class to calculate gammas."""
+        self.calc_gamma()
+        self.calc_gammap()
+        self.calc_gammapp()
+
+    def get_gamma(self, index):
+        try:
+            return self.gamma[index]
+        except Exception as e:
+            print('\nError when getting gamma: '),
+            print(e)
+            return 0
+
+    def get_gammap(self, index):
+        try:
+            return self.gammap[index]
+        except Exception as e:
+            print('\nError when getting gamma prime: '),
+            print(e)
+            return 0
+
+    def get_gammapp(self, index):
+        try:
+            return self.gammapp[index]
+        except Exception as e:
+            print('\nError when getting gamma prime prime: '),
+            print(e)
+            return 0
+
+
+    def calc_gamma(self):
+        """Used by class to calculate gamma values and save them."""
+        self.gamma = [0 for i in range(len(self.path))]
+
+        for i in range(len(self.path)):
+            x1 = self.path[i - 1][0]
+            y1 = self.path[i - 1][1]
+            if i == len(self.path) - 1:
+                x2 = self.path[0][0]
+                y2 = self.path[0][1]
+            else:
+                x2 = self.path[i + 1][0]
+                y2 = self.path[i + 1][1]
+            try:
+                rad = math.atan((y2 - y1)/(x2 - x1))
+                if x2 < x1:
+                    if y2 > y1:
+                        rad = rad - math.pi
+                    else:
+                        rad = rad + math.pi
+                self.gamma[i] = rad
+            except ZeroDivisionError:
+                if y2 > y1:
+                    self.gamma[i] = math.pi/2
+                else:
+                    self.gamma[i] = 3*math.pi/2
+
+
+
+    def calc_gammap(self):
+        """Used by class to calculate gamma prime."""
+        self.gammap = [0 for i in range(len(self.path))]
+
+        for i in range(len(self.gamma)):
+            x1 = self.path[i - 1][0]
+            y1 = self.path[i - 1][1]
+            x2 = self.path[i][0]
+            y2 = self.path[i][1]
+            if i == len(self.path) - 1:
+                x3 = self.path[0][0]
+                y3 = self.path[0][1]
+                self.gammap[i] = (self.gamma[0] - self.gamma[i - 1]) / (
+                                math.sqrt((x3 - x2)**2 + (y3 - y2)**2) + math.sqrt(
+                                (x2 - x1)**2 + (y2 - y1)**2))
+            else:
+                x3 = self.path[i + 1][0]
+                y3 = self.path[i + 1][1]
+
+                self.gammap[i] = (self.gamma[i + 1] - self.gamma[i - 1]) / (
+                                math.sqrt((x3 - x2)**2 + (y3 - y2)**2) + math.sqrt(
+                                (x2 - x1)**2 + (y2 - y1)**2))
+
+    def calc_gammapp(self):
+        """Used by class to calculate gamma prime prime."""
+        self.gammapp = [0 for i in range(len(self.path))]
+
+        for i in range(len(self.gamma)):
+            x1 = self.path[i - 1][0]
+            y1 = self.path[i - 1][1]
+            x2 = self.path[i][0]
+            y2 = self.path[i][1]
+            if i == len(self.path) - 1:
+                x3 = self.path[0][0]
+                y3 = self.path[0][1]
+                self.gammapp[i] = (self.gammap[0] - self.gammap[i - 1]) / (
+                            math.sqrt((x3 - x2)**2 + (y3 - y2)**2) + math.sqrt(
+                            (x2 - x1)**2 + (y2 - y1)**2))
+            else:
+                x3 = self.path[i + 1][0]
+                y3 = self.path[i + 1][1]
+
+                self.gammapp[i] = (self.gammap[i + 1] - self.gammap[i - 1]) / (
+                            math.sqrt((x3 - x2)**2 + (y3 - y2)**2) + math.sqrt(
+                            (x2 - x1)**2 + (y2 - y1)**2))
+
 
 
 if __name__ == '__main__':
     pt = Path()
-    pt.gen_circle_path(1.4, 100)
+    pt.gen_circle_path(1, 100)
+    #a = pt.get_gamma(4)
     #pt.printp()
     #pt.load('hej2.txt')
-    pt.plot(4, 4)
+    #pt.plot(4, 4)
     #pt.printp()
     #pt.interpolate()
+
 
     pt.save('hej2.txt')
