@@ -97,6 +97,8 @@ class Path:
         """Plots the path in a Tkinter window. Arguments are the width and
         height of the real path area in meters."""
         self._lp = True  # Plot if true
+        realh = float(realh)
+        realw = float(realw)
         root = Tk()
         h = 600     # Tkinter canvas height.
         w = int(h*realw/realh)
@@ -110,6 +112,10 @@ class Path:
         canv = Canvas(root, width = w, height = h, background='#FFFFFF',
                     borderwidth = 0, relief = RAISED)
         canv.pack(in_ = canv_frame)
+        lst = [h, w, realh, realw]
+        canv.bind('<Button-1>', lambda event, arg = lst: self._print_xy(
+                    event, arg))
+        #canv.bind('<Button-1>', self._print_xy(1))
 
         right_frame = Frame(root, background = 'aquamarine')
         right_frame.pack(in_ = s_frame, side = RIGHT, anchor = N)
@@ -153,6 +159,13 @@ class Path:
                 pass
 
         root.destroy()
+
+
+    def _print_xy(self, event, arg):
+        """Used internally to print the coordinates clicked on."""
+        print('{:07.4f} {:07.4f}'.format(
+                float((event.x - arg[1]/2)*arg[3]/arg[1]),
+                float((arg[0]/2 - event.y)*arg[2]/arg[0])))
 
 
     def _pixelv(self, index, hreal, wreal, hpixel, wpixel):
@@ -347,6 +360,7 @@ class Path:
 if __name__ == '__main__':
     pt = Path()
     pt.gen_circle_path(1, 40)
+    pt.plot(4, 4)
 
 
     #pt.save('hej2.txt')
