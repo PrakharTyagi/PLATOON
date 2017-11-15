@@ -57,7 +57,7 @@ def receiver(vehicle_id):
         command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
         client_socket.sendto(command_msg, address)
 
-        if len(inpt) == 0:
+        if inpt == 0:
             break
 
 
