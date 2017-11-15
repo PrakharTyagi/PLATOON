@@ -1,63 +1,55 @@
-from modeltruck_platooning.msg import drive_param
-from mocap_source_2 import Mocap
-from socket import *
-import struct
-import time
-import sys
+
 import numpy
 import math
 
 
 class Controller:
-
     def __init__(self, w = 0, v = 1):
-        self.omega = w
-        self.speed = v
-        self.xM = x
-        self.yM = y
-
-
+        self.omega = float(w)
+        self.speed = float(v)
+        self.microSec = 0
+        self.angle = 0
     def translateInput(self, w):
 
-        if(w > 0): #Turn left
+        if (w >= 0):
             print("Turn Left")
-            turnLeft(self.omega, self.speed)
-        elif(w<0): #Turn right
-            turnRight(self.omega, self.speed)
+            leftTurn = True;
+
+        elif (w < 0):
+            leftTurn = False
             print("Turn Right")
-        else:
-            rint("Keep on")
 
+        self.turn(w, self.speed, leftTurn)
 
-    def turnRight(self, w, v):
+    def turn(self, w, v,leftTurn):
 
-        r = 1   #svängradie 2..!
-        theta = math.asin(w*r/v)
-        microSec = 0
+        l = 0.2
+        x = 0.1
+        r = v/w
+        den = math.sqrt(r**2-x**2)
+        a = math.atan(l/den)
+        microSec = 1500
 
-        if(theta > pi/6):
+        if(leftTurn == False):
+            a= a*(-1)
+
+        if(a> math.pi/6):
+            microSec = 1800
+            a = math.pi/6
+
+        elif((a < -math.pi/6)):
             microSec = 1200
+            a = -math.pi/6
         else:
-            microSec = 1500 - 300*6/pi * theta
+            microSec = 1500 + 300*6/math.pi*a
 
-        print("New angle = ", theta)
-        print("New input = ", microSec)
+        self.microSec = microSec
+        self.angle = a*180/math.pi
 
-    def turnRight(self,w,v):
-
-        r = 1  # svängradie 2..!
-        theta = math.asin(w * r / v)
-        microSec = 0;
-
-        if (theta < -(pi/6)):
-            microSec = 1800;
-        else:
-            microSec = 1500 + 300*6/pi*theta;
-
-        print("New angle = ", theta)
-        print("New input = ", microSec)
-
-        return microSec
+    def getMicroSec(self):
+        return self.microSec
+    def getAngle(self):
+        return self.angle
 
 
 
