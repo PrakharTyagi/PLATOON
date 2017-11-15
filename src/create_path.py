@@ -130,7 +130,7 @@ class NewPath:
 
 if __name__ == '__main__':
 
-    filename = 'hej1.txt'
+    filename = 'hej2.txt'
 
     root = Tk()
 

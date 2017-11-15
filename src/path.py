@@ -129,13 +129,14 @@ class Path:
         canv.create_line(int(w/2), int(h/2), int(w/2) + 50, int(h/2),
                         width = 2, arrow = 'last')
 
-        canv.create_text(2, 2, text = '({}, {})'.format( -realw, realh),
+        canv.create_text(2, 2, text = '({}, {})'.format(-realw/2, realh/2),
                             anchor = 'nw')
-        canv.create_text(2, h - 2, text = '({}, {})'.format(-realw, -realh),
+        canv.create_text(2, h - 2, text = '({}, {})'.format(-realw/2, -realh/2),
                             anchor = 'sw')
-        canv.create_text(w - 2, h - 2, text = '({}, {})'.format(realw, -realh),
+        canv.create_text(w - 2, h - 2, text = '({}, {})'.format(realw/2,
+                            -realh/2),
                             anchor = 'se')
-        canv.create_text(w - 2, 2, text = '({}, {})'.format(realw, realh),
+        canv.create_text(w - 2, 2, text = '({}, {})'.format(realw/2, realh/2),
                             anchor = 'ne')
 
         root.protocol("WM_DELETE_WINDOW", self._quitm)
@@ -163,22 +164,34 @@ class Path:
 
     def _print_xy(self, event, arg):
         """Used internally to print the coordinates clicked on."""
-        print('{:07.4f} {:07.4f}'.format(
-                float((event.x - arg[1]/2)*arg[3]/arg[1]),
-                float((arg[0]/2 - event.y)*arg[2]/arg[0])))
+        x = float((event.x - arg[1]/2)*arg[3]/arg[1])
+        y = float((arg[0]/2 - event.y)*arg[2]/arg[0])
+        print('{:07.4f}, {:07.4f}, {}error: {}'.format(
+                x, y,
+                'inside,  ' if self.is_inside([x, y]) else 'outside, ',
+                self.get_ey([x, y])))
+        # print('{:07.4f}, {:07.4f}'.format(x, y)),
+        # if self.is_inside([x, y]):
+        #     print(', Inside'),
+        # else:
+        #     print(', Outside'),
+
 
 
     def _pixelv(self, index, hreal, wreal, hpixel, wpixel):
         """Used internally to transform the path from real coordinates
         to pixel coordinates."""
         try:
+            index = index % len(self.path)
             xpixel = int(wpixel/wreal * self.path[index][0] + wpixel/2)
             ypixel = int(- hpixel/hreal * self.path[index][1] + hpixel/2)
             return [xpixel, ypixel]
         except:
             return [0, 0]
 
+
     def _quitm(self):
+        """Used internally for quitting graphical application."""
         self._lp = False
 
 
@@ -199,6 +212,7 @@ class Path:
     def get_xy(self, index):
         """# Returns x and y at the given index."""
         try:
+            index = index % len(self.path)
             x = self.path[index][0]
             y = self.path[index][1]
             return [x, y]
@@ -226,20 +240,67 @@ class Path:
         """Returns a unit vector approximating the tangent direction at the
         given index"""
         try:
-            vec = [self.path[index + 1][0] - self.path[index - 1][0],
-                    self.path[index + 1][1] - self.path[index - 1][1]]
+            index = index % len(self.path)
+
+            if index == len(self.path) - 1:
+                x2 = self.path[0][0]
+                y2 = self.path[0][1]
+            else:
+                x2 = self.path[index + 1][0]
+                y2 = self.path[index + 1][1]
+
+            vec = [x2 - self.path[index - 1][0],
+                    y2 - self.path[index - 1][1]]
             vec_norm = math.sqrt(vec[0]**2 + vec[1]**2)
             vec[0] = vec[0]/vec_norm
             vec[1] = vec[1]/vec_norm
+
             return vec
+
         except Exception as e:
             print('\nError when calculating tangent: {}'.format(e))
             return [0, 0]
 
 
+    def get_normal(self, index):
+        """Returns the normal vector to the path at the given index. The
+        normal points out of the path, i.e. to the right in the direction of
+        the path."""
+        index = index % len(self.path)
+        v = self.get_tangent(index)
+        return [v[1], -v[0]]
+
+
+    def is_inside(self, xy):
+        """Returns True if point (x, y) is inside of the path. Inside is
+        considered as being to the left of it in the direction of the path."""
+        index, closest = self.get_closest(xy)
+
+        n = self.get_normal(index)
+
+        val = n[0]*(xy[0] - closest[0]) + n[1]*(xy[1] - closest[1])
+
+        if val >= 0:
+            return False
+        else:
+            return True
+
+
+    def get_ey(self, xy):
+        """Returns the y error of the given point (x, y). The error is positive
+        if the point is inside of the path, i.e. to the left of the path. """
+        index, closest = self.get_closest(xy)
+        ey = math.sqrt((xy[0] - closest[0])**2 + (xy[1] - closest[1])**2)
+        if not self.is_inside(xy):
+            ey = -ey
+
+        return ey
+
+
     def get_gamma(self, index):
         """Returns gamma at the given index."""
         try:
+            index = index % len(self.path)
             return self.gamma[index]
         except Exception as e:
             print('\nError when getting gamma: {}'.format(e))
@@ -249,6 +310,7 @@ class Path:
     def get_gammap(self, index):
         """Returns gamma prime at the given index."""
         try:
+            index = index % len(self.path)
             return self.gammap[index]
         except Exception as e:
             print('\nError when getting gamma prime: {}'.format(e))
@@ -258,6 +320,7 @@ class Path:
     def get_gammapp(self, index):
         """Returns gamma prime prime at the given index."""
         try:
+            index = index % len(self.path)
             return self.gammapp[index]
         except Exception as e:
             print('\nError when getting gamma prime prime: {}'.format(e))
@@ -359,7 +422,8 @@ class Path:
 
 if __name__ == '__main__':
     pt = Path()
-    pt.gen_circle_path(1, 40)
+    #pt.gen_circle_path(1, 40)
+    pt.load('hej2.txt')
     pt.plot(4, 4)
 
 
