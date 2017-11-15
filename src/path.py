@@ -2,9 +2,6 @@
 
 # Class for describing a path.
 
-# TODO handle parametrization of path?
-# gamma and gamma derivative (curvature?)
-
 import rospy
 from Tkinter import *
 import os
@@ -18,7 +15,7 @@ class Path:
         self.gamma = []
         self.gammap = []
         self.gammapp = []
-        self.lp = True
+        self._lp = True     # Used for graphical application.
 
 
     def save(self, filename):
@@ -35,8 +32,7 @@ class Path:
             print('Saved path as {}'.format(filename))
 
         except Exception as e:
-            print('\nError when saving path to file: '),
-            print(e)
+            print('\nError when saving path to file: {}'.format(e))
 
 
     def load(self, filename):
@@ -55,11 +51,10 @@ class Path:
                     y = float(line_list[1])
                     self.path.append((x, y))
 
-            self.calc_gammas()
+            self._calc_gammas()
 
         except Exception as e:
-            print('\nError when loading path from file: '),
-            print(e)
+            print('\nError when loading path from file: {}'.format(e))
 
         try:
             fl.close()
@@ -77,7 +72,7 @@ class Path:
             newpath.append([x, y])
 
         self.path = newpath
-        self.calc_gammas()
+        self._calc_gammas()
 
 
     def interpolate(self):
@@ -101,9 +96,10 @@ class Path:
     def plot(self, realh, realw):
         """Plots the path in a Tkinter window. Arguments are the width and
         height of the real path area in meters."""
+        self._lp = True  # Plot if true
         root = Tk()
         h = 600     # Tkinter canvas height.
-        w = 600
+        w = int(h*realw/realh)
 
         s_frame = Frame(root, background = 'aquamarine')
         s_frame.pack()
@@ -117,7 +113,7 @@ class Path:
 
         right_frame = Frame(root, background = 'aquamarine')
         right_frame.pack(in_ = s_frame, side = RIGHT, anchor = N)
-        quit_button = Button(root, text = 'Close', command = self.quitm,
+        quit_button = Button(root, text = 'Close', command = self._quitm,
                             width = 10, background = 'coral',
                             activebackground = 'red')
         quit_button.pack(in_ = right_frame)
@@ -136,12 +132,12 @@ class Path:
         canv.create_text(w - 2, 2, text = '({}, {})'.format(realw, realh),
                             anchor = 'ne')
 
-        root.protocol("WM_DELETE_WINDOW", self.quitm)
+        root.protocol("WM_DELETE_WINDOW", self._quitm)
 
         try:
             for i in range(len(self.path)):
-                xy1 = self.pixelv(i - 1, realh, realw, h, w)
-                xy2 = self.pixelv(i, realh, realw, h, w)
+                xy1 = self._pixelv(i - 1, realh, realw, h, w)
+                xy2 = self._pixelv(i, realh, realw, h, w)
                 canv.create_line(xy1[0], xy1[1], xy2[0], xy2[1],
                                     fill = 'blue', width = 2)
                 canv.create_oval(xy2[0] - 3, xy2[1] - 3,
@@ -149,7 +145,7 @@ class Path:
         except Exception as e:
             print(e)
 
-        while self.lp:
+        while self._lp:
             try:
                 if 'normal' == root.state():
                     root.update()
@@ -159,7 +155,7 @@ class Path:
         root.destroy()
 
 
-    def pixelv(self, index, hreal, wreal, hpixel, wpixel):
+    def _pixelv(self, index, hreal, wreal, hpixel, wpixel):
         """Used internally to transform the path from real coordinates
         to pixel coordinates."""
         try:
@@ -169,11 +165,11 @@ class Path:
         except:
             return [0, 0]
 
-    def quitm(self):
-        self.lp = False
+    def _quitm(self):
+        self._lp = False
 
 
-    def split(self):
+    def _split(self):
         """Returns two lists, one containing x and one containing y."""
         xlist = [a for a,b in self.path]
         ylist = [b for a,b in self.path]
@@ -195,8 +191,7 @@ class Path:
             return [x, y]
 
         except Exception as e:
-            print('\nError when retrieving x and y: '),
-            print(e)
+            print('\nError when retrieving x and y: {}'.format(e))
             return [0, 0]
 
 
@@ -210,8 +205,7 @@ class Path:
             return index, closest
 
         except Exception as e:
-            print('\nError when retrieving closest point on path: '),
-            print(e)
+            print('\nError when retrieving closest point on path: {}'.format(e))
             return 0, [0, 0]
 
 
@@ -226,8 +220,7 @@ class Path:
             vec[1] = vec[1]/vec_norm
             return vec
         except Exception as e:
-            print('\nError when calculating tangent: '),
-            print(e)
+            print('\nError when calculating tangent: {}'.format(e))
             return [0, 0]
 
 
@@ -236,8 +229,7 @@ class Path:
         try:
             return self.gamma[index]
         except Exception as e:
-            print('\nError when getting gamma: '),
-            print(e)
+            print('\nError when getting gamma: {}'.format(e))
             return 0
 
 
@@ -246,8 +238,7 @@ class Path:
         try:
             return self.gammap[index]
         except Exception as e:
-            print('\nError when getting gamma prime: '),
-            print(e)
+            print('\nError when getting gamma prime: {}'.format(e))
             return 0
 
 
@@ -256,19 +247,18 @@ class Path:
         try:
             return self.gammapp[index]
         except Exception as e:
-            print('\nError when getting gamma prime prime: '),
-            print(e)
+            print('\nError when getting gamma prime prime: {}'.format(e))
             return 0
 
 
-    def calc_gammas(self):
+    def _calc_gammas(self):
         """Used internally by class to calculate gammas."""
-        self.calc_gamma()
-        self.calc_gammap()
-        self.calc_gammapp()
+        self._calc_gamma()
+        self._calc_gammap()
+        self._calc_gammapp()
 
 
-    def calc_gamma(self):
+    def _calc_gamma(self):
         """Used internally by class to calculate gamma values and save
         them."""
         self.gamma = [0 for i in range(len(self.path))]
@@ -293,14 +283,14 @@ class Path:
 
                 self.gamma[i] = rad
 
-            except ZeroDivisionError:
+            except ZeroDivisionError:   # Angle is pi/2 or 3pi/2
                 if y2 > y1:
                     self.gamma[i] = math.pi/2
                 else:
                     self.gamma[i] = 3*math.pi/2
 
 
-    def calc_gammap(self):
+    def _calc_gammap(self):
         """Used internally by class to calculate gamma prime."""
         self.gammap = [0 for i in range(len(self.path))]
 
@@ -320,7 +310,7 @@ class Path:
 
             gamma_diff = gammap3 - self.gamma[i - 1]    # Make sure difference
             while gamma_diff > 2*math.pi:               # is between 0 and 2 pi.
-                gamma_diff = gamma_digg - 2*math.pi
+                gamma_diff = gamma_diff - 2*math.pi
             while gamma_diff < 0:
                 gamma_diff = gamma_diff + 2*math.pi
 
@@ -329,7 +319,7 @@ class Path:
                             (x2 - x1)**2 + (y2 - y1)**2))
 
 
-    def calc_gammapp(self):
+    def _calc_gammapp(self):
         """Used internally by class to calculate gamma prime prime."""
         self.gammapp = [0 for i in range(len(self.path))]
 
@@ -358,11 +348,5 @@ if __name__ == '__main__':
     pt = Path()
     pt.gen_circle_path(1, 40)
 
-    #pt.printp()
-    #pt.load('hej2.txt')
-    #pt.plot(4, 4)
-    #pt.printp()
-    #pt.interpolate()
 
-
-    pt.save('hej2.txt')
+    #pt.save('hej2.txt')
