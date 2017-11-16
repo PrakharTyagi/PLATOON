@@ -3,22 +3,23 @@ import numpy
 import math
 
 
-class Controller:
+class Translator:
     def __init__(self, w = 0, v = 1):
         self.omega = float(w)
         self.speed = float(v)
+        self.speedMicro = 1500;
         self.microSec = 0
         self.angle = 0
-    def translateInput(self, w):
 
+    def translateInput(self, w):
         if (w >= 0):
-            print("Turn Left")
+            #print("Turn Left")
             leftTurn = True;
 
         elif (w < 0):
             leftTurn = False
-            print("Turn Right")
-
+            #print("Turn Right")
+        self.speedMicro = 1400;
         self.turn(w, self.speed, leftTurn)
 
     def turn(self, w, v,leftTurn):
@@ -50,6 +51,12 @@ class Controller:
         return self.microSec
     def getAngle(self):
         return self.angle
+    def getSpeed(self):
+        return self.speedMicro
+    def getGear(self):
+        return 60
+
+
 
 
 
