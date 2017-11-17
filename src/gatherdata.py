@@ -25,7 +25,7 @@ def callback(data):
 	print('y_coordinate:', y)
 	print('Angle :', angle)
 	
-	#fixa service där du specifierar ett tidsintervall mellan datainhämtningarna
+	#fixa service där du specifierar när datainhämtningarna ska ske
 	#om inga nya värden registreras efter ett antal "samplingar", skickas datalistorna
 	#till log() där värdena loggas i en txtfil
 	
