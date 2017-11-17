@@ -4,7 +4,7 @@ import rospy
 import numpy
 import sys
 
-from modeltruck_platooning.srv import state
+from modeltruck_platooning.srv import state, stateResponse, stateRequest
 from modeltruck_platooning.msg import *
 
 from mocap_source_2 import Mocap, Body
@@ -13,8 +13,8 @@ from mocap_source_2 import Mocap, Body
 
 
 class truck_state:
-	def __init__(self,truck_id):
-		#print(truck_id)
+	def __init__(self):
+		
 
 		#initialize mocap connection
 		#self.mocap = Mocap(host = '130.237.43.61', info = 1)
@@ -31,30 +31,33 @@ class truck_state:
 		#self.mocap_body2 = self.mocap.get_id_from_name('MiniTruck2')
 		#self.mocap_body3 = self.mocap.get_id_from_name('MiniTruck3')
 		
-		self.get_state(truck_id)
+		rospy.init_node('truck_state_server')
+		s = rospy.Service('truck_state', state, self.get_state) #service name, servicetype, handle
+		print "Ready to send truckstate."
+		
+		rospy.spin()
 		
 		#self.sender()
-		rospy.spin()
 
 
-	def get_state(self,truck_id):
-		#print("Tjena %s" % truck_id)
+	def get_state(self,request):
+		
+		truck_id = request.truck_id
+		print(truck_id)
 		if truck_id==1:
-			truck_state1={"x": "x", "y": "y", "yaw": "yaw"}
+			truck_state1={"x": 1.2, "y": 0.3, "yaw": 4.4}
 			#truck_state1 = self.mocap.get_body(self.mocap_body1)
 			if truck_state1 == 'off':
 				rospy.logwarn("truck 1 is not found")
 			else:
-				msg1 = VehicleState()
-				msg1.x = truck_state1['x']
-				msg1.y = truck_state1['y']
-				msg1.yaw = truck_state1['yaw']
+				msg = stateResponse()
+				msg.x = truck_state1['x']
+				msg.y = truck_state1['y']
+				msg.yaw = truck_state1['yaw']
 				
-				msg=msg1
-				print("tja  \n%s" % msg)
-			
-				#return (msg)
-				#print("tja \n%s" % msg.x)			
+				print("Returning state of truck 1: %s %s %s" % (msg.x,msg.y,msg.yaw))
+				
+				return msg
 				
 				
 		elif truck_id==2:
@@ -62,11 +65,14 @@ class truck_state:
 			if truck_state2 == 'off':
 				rospy.logwarn("truck 2 is not found")
 			else:
-				msg2 = VehicleState()
-				msg2.x = truck_state2['x']
-				msg2.y = truck_state2['y']
-				msg2.yaw = truck_state2['yaw']
-				msg=msg2
+				msg = VehicleState()
+				msg.x = truck_state2['x']
+				msg.y = truck_state2['y']
+				msg.yaw = truck_state2['yaw']
+				
+				print("Returning state of truck 2: %s %s %s" % (msg.x,msg.y,msg.yaw))			
+				
+				return msg
 				
 
 		elif truck_id==3:
@@ -74,30 +80,21 @@ class truck_state:
 			if truck_state3 == 'off':
 				rospy.logwarn("truck 3 is not found")
 			else:
-				msg3 = VehicleState()
-				msg3.x = truck_state3['x']
-				msg3.y = truck_state3['y']
-				msg3.yaw = truck_state3['yaw']
-				msg=msg3
+				msg = VehicleState()
+				msg.x = truck_state3['x']
+				msg.y = truck_state3['y']
+				msg.yaw = truck_state3['yaw']
+				
+				print("Returning state of truck 3: %s %s %s" % (msg.x,msg.y,msg.yaw))
+				
+				return msg
 				
 		else:
 			print("No such truck")
-		
-
-def handle_truck_state(truck_id):
-	truck=truck_state(truck_id.truck_id).get_state(truck_id.truck_id)
-	print(truck)
-	#print(msg)
-	print("halloj %s" % truck_id)
-	#print "Returning state of truck %s: %s, %s, %s"%(truck_id.truck_id, msg,msg,msg)
-	return (truck)		
-		
-def truck_state_server():
-	rospy.init_node('truck_state_server')
-	s = rospy.Service('truck_state', state, handle_truck_state) #service name, servicetype, handle
-	print "Ready to send truckstate."
-	rospy.spin()
+			pass
+		#print("Returning state of truck %s: %s %s %s" % (truck_id,msg.x,msg.y,msg.yaw))		
+			
 
 if __name__ == "__main__":
-	truck_state_server()
+	sender = truck_state()
 	

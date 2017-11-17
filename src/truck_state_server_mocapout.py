@@ -14,11 +14,6 @@ class Mocap1:
 	
 	def __init__(self):
 		self.truck_state1=1
-		self.mocap = Mocap(host = '130.237.43.61', info = 1)
-		self.mocap_body1 =self.mocap.get_id_from_name('TruckVehicle1')
-		self.mocap_body2 =self.mocap.get_id_from_name('TruckVehicle2')		
-		self.mocap_body3 =self.mocap.get_id_from_name('TruckVehicle3')
-		
 		
 	def get_body(self):
 		return {"x": 0.23, "y": 5.41, "yaw": 1.23}
@@ -32,11 +27,9 @@ def initmocap(truck_id):
 	#mocap_body1 =mocap.get_id_from_name('TruckVehicle1')
 	#mocap_body2 =mocap.get_id_from_name('TruckVehicle2')		
 	#mocap_body3 =mocap.get_id_from_name('TruckVehicle3')
-	#mocap1=Mocap1()
-	if truck_id == 1:		
-		msg=get_state(mocap.mocap_body1,truck_id,mocap_body1)
-	elif truck_id==2:
-		msg=get_state(mocap.mocap_body1,truck_id,mocap_body1)
+	mocap1=Mocap1()
+	
+	msg=get_state(mocap1,truck_id)
 	#print(msg)
 	return(msg)
 		
@@ -97,7 +90,6 @@ def handle_truck_state(truck_id):
 def truck_state_server():
 	rospy.init_node('truck_state_server')
 	s = rospy.Service('truck_state', state, handle_truck_state) #service name, servicetype, handle
-	
 	print "Ready to send truckstate."
 	rospy.spin()
 
