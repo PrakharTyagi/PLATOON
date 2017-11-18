@@ -12,7 +12,7 @@ class CircleTruck():
         self.theta = self.theta0
         self.x = self.radius*math.cos(self.theta)
         self.y = self.radius*math.sin(self.theta)
-        self.velocity = 2
+        self.velocity = 1
         self.yaw = self.theta + math.pi/2
 
     def update_pos(self, time_elapsed):
@@ -33,12 +33,16 @@ class PlotServer():
         self.ct = CircleTruck()
 
     def handle_request(self, req):
-        print('Returning x, y, yaw, time')
+
         time_new = time.time()
         self.time_elapsed = time_new - self.init_time
 
         self.ct.update_pos(self.time_elapsed)
         x, y, yaw = self.ct.get_values()
+
+        # print(
+        #     'Returning x = {:07.4f}, y = {:07.4f}, yaw = {:07.4f}, time = {:.1f}'.format(
+        #     x, y, yaw, self.time_elapsed))
 
         return TestPlotResponse(x, y, yaw, self.time_elapsed)
 
