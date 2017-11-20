@@ -9,11 +9,12 @@ def get_truck_state(truck_id):
 	rospy.wait_for_service('truck_state')#waits until service is available
 	try:
 		truck_state = rospy.ServiceProxy('truck_state', state)
-		response1 = truck_state(truck_id)
+		response1 = truck_state(1)
+		#response2 = truck_state(2)
 		#resp2 = truck_state(truck_id)
-		
+
 		#print(resp1)
-		return response1.x, response1.y, response1.yaw
+		return response1 # response2
 
 	except rospy.ServiceException, e:
 		print "Service call failed: %s"%e
@@ -24,7 +25,8 @@ def usage():
 if __name__ == "__main__":
 	if len(sys.argv) == 2:
 		truck_id = int(sys.argv[1])
-		
+		#truck_id2 = int(sys.argv[2])
+
 	else:
 		print usage()
 		sys.exit(1)
