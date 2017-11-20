@@ -8,10 +8,12 @@ import time
 import Tkinter as tk
 import path
 import math
+import os
 
 class TruckPlot():
     """Class for GUI that plots the truck trajectories. """
-    def __init__(self, root, width = 5, height = 5, update_ts = 0.1):
+    def __init__(self, root, filename = 'record1.txt',
+                    width = 5, height = 5, update_ts = 0.1):
         self.width = float(width)       # Real width (meters) of the window.
         self.height = float(height)
         self.win_height = 800           # Graphical window height.
@@ -19,8 +21,12 @@ class TruckPlot():
         self.update_ts = update_ts  # Update interval of the plot.
         self.service_found = True
         self.pt = path.Path()       # A fixed path to draw.
-        self.recorded_path = []     # Recorded path of a truck.
+        self.recorded_path = []     # Recorded path of a truck for plotting.
         self.tail_time = 4          # How many seconds back to plot trajectory.
+        self.recording = False
+        self.saved_path = []        # Recorded path for saving to file.
+        self.save_filename = 'record1.txt'
+
 
         # Try to connect to the server. Quit application if failed.
         try:
@@ -126,6 +132,23 @@ class TruckPlot():
         root.quit()
 
 
+    def save(self, filename):
+        """Saves path to file. Writes each line on the format x,y"""
+        try:
+            __location__ = os.path.realpath(os.path.join(os.getcwd(),
+                                            os.path.dirname(__file__)))
+            fl = open(os.path.join(__location__, filename), 'w');
+
+            for xy in self.saved_path:
+                fl.write('{},{},{},{}\n'.format(xy[0], xy[1], xy[2], xy[3]))
+
+            fl.close()
+            print('Saved path as {}'.format(filename))
+
+        except Exception as e:
+            print('\nError when saving path to file: {}'.format(e))
+
+
     def _refresher(self):
         """Runs every self.update_ts seconds. Calls all methods to run at each
         update step. """
@@ -136,6 +159,7 @@ class TruckPlot():
             self._draw_canvas(response)
             self.time_text_var.set(
                 'Server time: \n{:.1f}'.format(response.timestamp))
+            self._record_data(response)
         except rospy.ServiceException as e:
             print('Service call failed: {}'.format(e))
 
@@ -205,7 +229,7 @@ class TruckPlot():
         """Draws a triangle centered at the truck position. """
         l = 0.2 # Truck length in meters.
         w = 0.1
-
+        #print(yaw)
         # Coordinates for frontal corner.
         xf, yf = self._real_to_pixel(
             xreal + l/2*math.cos(yaw),
@@ -224,14 +248,33 @@ class TruckPlot():
         self.canv.create_polygon(xf, yf, xr, yr, xl, yl, fill = clr)
 
 
+
+    def _record_data(self, response):
+        if self.recording:
+            self.saved_path.append([response.x, response.y, response.yaw,
+                                    response.timestamp])
+
+
     def _start_record(self):
         """Starts a new recording of trajectories."""
-        print('TODO: write start recording method.')
+        if self.recording:
+            print('Already recording.')
+        else:
+            self.saved_path = []
+            self.recording = True
+            print('Recording started.')
+        #print('TODO: write start recording method.')
 
 
     def _stop_record(self):
         """Stops current recording of trajectories."""
-        print('TODO: write stop recording method.')
+        if not self.recording:
+            print('No recording is running.')
+        else:
+            self.recording = False
+            print('Recording stopped.')
+            self.save(self.save_filename)
+        #print('TODO: write stop recording method.')
 
 
     def _save_record(self):
@@ -283,11 +326,12 @@ if __name__ == '__main__':
     width = 5
     height = 5
     update_ts = 0.01
+    fn = 'record1.txt'
 
     root = tk.Tk()
     try:
-        pp = TruckPlot(root, width, height, update_ts)
-        pp.gen_circle_path([1.7, 2.2], 200)
+        pp = TruckPlot(root, fn, width, height, update_ts)
+        pp.gen_circle_path([1.7, 1.9], 200)
 
         try:
             root.mainloop()

@@ -9,6 +9,7 @@ from socket import *
 import struct
 import time
 import sys
+import math
 
 class Truck:
     def __init__(self):
@@ -22,7 +23,7 @@ class Truck:
         y = truck_state1['y']
         yaw = truck_state1['yaw']
 
-        return x, y, yaw
+        return x, y, yaw*math.pi/180
 
 
 def receiver(vehicle_id):

@@ -9,7 +9,7 @@ import math
 class Truck:
     def __init__(self):
         #initialize mocap connection
-        self.mocap = Mocap(host = '192.168.1.199', info = 1)
+        self.mocap = Mocap(host = '192.168.1.10', info = 1)
         self.mocap_body1 = self.mocap.get_id_from_name('TruckVehicle2')
 
     def get_values(self):
@@ -18,7 +18,7 @@ class Truck:
         y = truck_state1['y']
         yaw = truck_state1['yaw']
 
-        return x, y, yaw
+        return x, y, yaw*math.pi/180
 
 
 class PlotServer():
