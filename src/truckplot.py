@@ -20,7 +20,7 @@ class TruckPlot():
         self.service_found = True
         self.pt = path.Path()       # A fixed path to draw.
         self.recorded_path = []     # Recorded path of a truck.
-        self.tail_time = 3          # How many seconds back to plot trajectory.
+        self.tail_time = 4          # How many seconds back to plot trajectory.
 
         # Try to connect to the server. Quit application if failed.
         try:
@@ -36,6 +36,8 @@ class TruckPlot():
             raise RuntimeError('Could not connect to server.')
 
         bg_color = 'SlateGray2'
+        w1 = 10
+        ypad = 10
         # Base frame.
         s_frame = tk.Frame(root, background = bg_color)
         s_frame.pack()
@@ -44,8 +46,8 @@ class TruckPlot():
         canv_frame = tk.Frame(root)
         canv_frame.pack(in_ = s_frame, side= tk.LEFT)
         self.canv = tk.Canvas(root, width = self.win_width,
-                    height = self.win_height, background='#FFFFFF',
-                    borderwidth = 0, relief = tk.RAISED)
+                            height = self.win_height, background='#FFFFFF',
+                            borderwidth = 0, relief = tk.RAISED)
         self.canv.pack(in_ = canv_frame)
         self.canv.bind('<Button-1>', self._left_click)
 
@@ -55,25 +57,40 @@ class TruckPlot():
 
         # Create button frame.
         button_frame = tk.Frame(root, background = bg_color)
-        button_frame.pack(in_ = right_frame, side = tk.TOP, anchor = tk.N)
+        button_frame.pack(in_ = right_frame, side = tk.TOP, anchor = tk.N,
+                            pady = (0, ypad))
+
+        # Create frame for recording widgets.
+        record_frame = tk.Frame(root, background = bg_color)
+        record_frame.pack(in_ = right_frame, side = tk.TOP,
+                            anchor = tk.N, pady = (0, ypad))
 
         # Create bottom frame for other stuff.
         bottom_frame = tk.Frame(root, background = bg_color)
-        bottom_frame.pack(in_ = right_frame, side = tk.BOTTOM, anchor = tk.W)
+        bottom_frame.pack(in_ = right_frame, side = tk.TOP, anchor = tk.N,
+                            pady = (0, ypad))
 
         # Button for quitting the program.
         quit_button = tk.Button(root, text = 'Quit',
                             command = self._quit1,
-                            width = 10, height = 2, background = 'red2',
+                            width = w1, height = 2, background = 'red2',
                             activebackground = 'red3')
         quit_button.pack(in_ = button_frame)
 
         # Button for clearing trajectories.
         clear_button = tk.Button(root, text = 'Clear trajectories',
                             command = self._clear_trajectories,
-                            width = 10, height = 2, background = 'orange',
+                            width = w1, height = 2, background = 'orange',
                             activebackground = 'dark orange')
         clear_button.pack(in_ = button_frame)
+
+        # Buttons for recording trajectories.
+        start_record_button = tk.Button(root, text = 'Start new\nrecording',
+            command = self._start_record, width = w1, height = 2)
+        start_record_button.pack(in_ = record_frame)
+        stop_record_button = tk.Button(root, text = 'Stop\nrecording',
+            command = self._stop_record, width = w1, height = 2)
+        stop_record_button.pack(in_ = record_frame)
 
         # Label displaying the elapsed server time.
         self.time_text_var = tk.StringVar()
@@ -89,34 +106,6 @@ class TruckPlot():
         root.bind('<Control-c>', self._quit2)
 
         self._refresher()   # Start the refresher that draws everything.
-
-
-    def _draw_cf(self):
-        """Draw lines for the origin and create text displaying the coordinates
-        in the corners. """
-        # Create origin coordinate arrows.
-        self.canv.create_line(int(self.win_width/2), int(self.win_height/2),
-                            int(self.win_width/2), int(self.win_height/2) - 50,
-                            width = 2, arrow = 'last')
-        self.canv.create_line(int(self.win_width/2), int(self.win_height/2),
-                            int(self.win_width/2) + 50, int(self.win_height/2),
-                            width = 2, arrow = 'last')
-
-        # Add coordinates to the corners.
-        self.canv.create_text(
-            2, 2, text = '({}, {})'.format(-self.width/2, self.height/2),
-            anchor = 'nw')
-        self.canv.create_text(
-            2, self.win_height - 2, text = '({}, {})'.format(
-                -self.width/2, -self.height/2),
-            anchor = 'sw')
-        self.canv.create_text(
-            self.win_width - 2, self.win_height - 2, text = '({}, {})'.format(
-                self.width/2, -self.height/2),
-            anchor = 'se')
-        self.canv.create_text(self.win_width - 2, 2, text = '({}, {})'.format(
-                self.width/2, self.height/2),
-            anchor = 'ne')
 
 
     def _left_click(self, event):
@@ -147,10 +136,38 @@ class TruckPlot():
             self._draw_canvas(response)
             self.time_text_var.set(
                 'Server time: \n{:.1f}'.format(response.timestamp))
-        except rospy.ServiceException, e:
+        except rospy.ServiceException as e:
             print('Service call failed: {}'.format(e))
 
         root.after(int(self.update_ts*1000), self._refresher)
+
+
+    def _draw_cf(self):
+        """Draw lines for the origin and create text displaying the coordinates
+        in the corners. """
+        # Create origin coordinate arrows.
+        self.canv.create_line(int(self.win_width/2), int(self.win_height/2),
+                            int(self.win_width/2), int(self.win_height/2) - 50,
+                            width = 2, arrow = 'last')
+        self.canv.create_line(int(self.win_width/2), int(self.win_height/2),
+                            int(self.win_width/2) + 50, int(self.win_height/2),
+                            width = 2, arrow = 'last')
+
+        # Add coordinates to the corners.
+        self.canv.create_text(
+            2, 2, text = '({}, {})'.format(-self.width/2, self.height/2),
+            anchor = 'nw')
+        self.canv.create_text(
+            2, self.win_height - 2, text = '({}, {})'.format(
+                -self.width/2, -self.height/2),
+            anchor = 'sw')
+        self.canv.create_text(
+            self.win_width - 2, self.win_height - 2, text = '({}, {})'.format(
+                self.width/2, -self.height/2),
+            anchor = 'se')
+        self.canv.create_text(self.win_width - 2, 2, text = '({}, {})'.format(
+                self.width/2, self.height/2),
+            anchor = 'ne')
 
 
     def _draw_canvas(self, resp):
@@ -207,6 +224,21 @@ class TruckPlot():
         self.canv.create_polygon(xf, yf, xr, yr, xl, yl, fill = clr)
 
 
+    def _start_record(self):
+        """Starts a new recording of trajectories."""
+        print('TODO: write start recording method.')
+
+
+    def _stop_record(self):
+        """Stops current recording of trajectories."""
+        print('TODO: write stop recording method.')
+
+
+    def _save_record(self):
+        """Saves the recorded trajectories to a file."""
+        print('TODO: write save recording method.')
+
+
     def _real_to_pixel(self, xreal, yreal):
         """Transform from real to pixel coordinates. """
         xpixel = int(self.win_width/self.width * xreal + self.win_width/2)
@@ -231,6 +263,7 @@ class TruckPlot():
         else:
             return seq[l - n:l]
 
+
     def _clear_trajectories(self):
         """Clear the saved truck trajectories. """
         self.recorded_path = []
@@ -254,7 +287,7 @@ if __name__ == '__main__':
     root = tk.Tk()
     try:
         pp = TruckPlot(root, width, height, update_ts)
-        pp.gen_circle_path(1.9, 200)
+        pp.gen_circle_path([1.7, 2.2], 200)
 
         try:
             root.mainloop()
