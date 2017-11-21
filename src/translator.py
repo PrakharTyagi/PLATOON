@@ -27,8 +27,11 @@ class Translator:
         l = 0.2
         x = 0.1
         r = v/w
-        den = math.sqrt(r**2-x**2)
-        a = math.atan(l/den)
+        if r**2 - x**2 > 0:
+            den = math.sqrt(r**2-x**2)
+            a = math.atan(l/den)
+        else:
+            a = 30
         microSec = 1500
 
         if(leftTurn == False):
@@ -55,9 +58,3 @@ class Translator:
         return self.speedMicro
     def getGear(self):
         return 60
-
-
-
-
-
-

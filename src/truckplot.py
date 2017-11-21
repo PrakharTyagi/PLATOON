@@ -2,6 +2,10 @@
 
 # Class for GUI that plots the truck trajectories.
 
+# TODO
+# Handle plotting of multiple trucks.
+# Add label indicating that recording is underway. Display time.
+
 import rospy
 from modeltruck_platooning.srv import *
 import time
@@ -25,7 +29,7 @@ class TruckPlot():
         self.tail_time = 4          # How many seconds back to plot trajectory.
         self.recording = False
         self.saved_path = []        # Recorded path for saving to file.
-        self.save_filename = 'record1.txt'
+        self.save_filename = filename
 
 
         # Try to connect to the server. Quit application if failed.
@@ -91,12 +95,13 @@ class TruckPlot():
         clear_button.pack(in_ = button_frame)
 
         # Buttons for recording trajectories.
-        start_record_button = tk.Button(root, text = 'Start new\nrecording',
+        self.start_record_button = tk.Button(root, text = 'Start new\nrecording',
             command = self._start_record, width = w1, height = 2)
-        start_record_button.pack(in_ = record_frame)
-        stop_record_button = tk.Button(root, text = 'Stop\nrecording',
-            command = self._stop_record, width = w1, height = 2)
-        stop_record_button.pack(in_ = record_frame)
+        self.start_record_button.pack(in_ = record_frame)
+        self.stop_record_button = tk.Button(root, text = 'Stop\nrecording',
+            command = self._stop_record, width = w1, height = 2,
+            state = tk.DISABLED)
+        self.stop_record_button.pack(in_ = record_frame)
 
         # Label displaying the elapsed server time.
         self.time_text_var = tk.StringVar()
@@ -130,23 +135,6 @@ class TruckPlot():
         """Quits the GUI. """
         print('Quitting.')
         root.quit()
-
-
-    def save(self, filename):
-        """Saves path to file. Writes each line on the format x,y"""
-        try:
-            __location__ = os.path.realpath(os.path.join(os.getcwd(),
-                                            os.path.dirname(__file__)))
-            fl = open(os.path.join(__location__, filename), 'w');
-
-            for xy in self.saved_path:
-                fl.write('{},{},{},{}\n'.format(xy[0], xy[1], xy[2], xy[3]))
-
-            fl.close()
-            print('Saved path as {}'.format(filename))
-
-        except Exception as e:
-            print('\nError when saving path to file: {}'.format(e))
 
 
     def _refresher(self):
@@ -262,8 +250,9 @@ class TruckPlot():
         else:
             self.saved_path = []
             self.recording = True
+            self.start_record_button.config(state = 'disabled')
+            self.stop_record_button.config(state = 'normal')
             print('Recording started.')
-        #print('TODO: write start recording method.')
 
 
     def _stop_record(self):
@@ -272,14 +261,37 @@ class TruckPlot():
             print('No recording is running.')
         else:
             self.recording = False
+            self.start_record_button.config(state = 'normal')
+            self.stop_record_button.config(state = 'disabled')
             print('Recording stopped.')
-            self.save(self.save_filename)
-        #print('TODO: write stop recording method.')
+            self._save_recorded()
 
 
-    def _save_record(self):
-        """Saves the recorded trajectories to a file."""
-        print('TODO: write save recording method.')
+    def _save_recorded(self):
+        """Saves recorded path to file. Writes each line on the format
+        x,y,yaw,servertime"""
+        try:
+            __location__ = os.path.realpath(os.path.join(os.getcwd(),
+                                            os.path.dirname(__file__)))
+
+            i = 0
+            while os.path.exists(os.path.join(__location__, '{}{}{}'.format(
+                self.save_filename, i, '.txt'))):
+                i += 1
+
+            filename = self.save_filename + str(i) + '.txt'
+            #filename = filename_in
+
+            fl = open(os.path.join(__location__, filename), 'w');
+
+            for xy in self.saved_path:
+                fl.write('{},{},{},{}\n'.format(xy[0], xy[1], xy[2], xy[3]))
+
+            fl.close()
+            print('Saved path as {}'.format(filename))
+
+        except Exception as e:
+            print('\nError when saving path to file: {}'.format(e))
 
 
     def _real_to_pixel(self, xreal, yreal):
@@ -326,12 +338,14 @@ if __name__ == '__main__':
     width = 5
     height = 5
     update_ts = 0.01
-    fn = 'record1.txt'
+    ax = 1
+    ay = 1
+    filename = 'record'
 
     root = tk.Tk()
     try:
-        pp = TruckPlot(root, fn, width, height, update_ts)
-        pp.gen_circle_path([1.7, 1.9], 200)
+        pp = TruckPlot(root, filename, width, height, update_ts)
+        pp.gen_circle_path([ax, ay], 200)
 
         try:
             root.mainloop()

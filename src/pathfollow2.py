@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from path import Path
 from translator import Translator
 #from sim_truck import Truck
@@ -7,23 +9,9 @@ import math
 from socket import *
 import struct
 import sys
+from modeltruck_platooning.srv import *
+import rospy
 
-
-class Truck:
-
-    def __init__(self):
-        #initialize sim truck
-        self.x = 1
-        self.y = 0.1
-        self.yaw = 90*(math.pi/180)
-
-    def get_values(self):
-        return self.x, self.y, self.yaw
-
-    def set_values(self,x_in,y_in,yaw_in):
-        self.x = x_in
-        self.y = y_in
-        self.yaw = yaw_in
 
 def sign(x):
     if x > 0:
@@ -31,7 +19,7 @@ def sign(x):
     else:
         return -1
 
-def get_omega(pt, tr, V, tid, sumy):
+def get_omega(pt, response, V, tid, sumy):
     # Circle r 1 k = 0.005 others 0 ok.
     k_py = 0.01
     k_vy = 0.3
@@ -39,7 +27,9 @@ def get_omega(pt, tr, V, tid, sumy):
 
     sum_limit = 0.05
 
-    x, y, yaw = tr.get_values()
+    x = response.x
+    y = response.y
+    yaw = response.yaw
     index, closest = pt.get_closest([x,y])
 
     ey = pt.get_ey([x, y])
@@ -80,15 +70,19 @@ def main():
     init_angle = 1500
     init_gear = 60
 
-    vel = init_velocity
+    vel = 1500
     ang = init_angle
     gr = init_gear
 
+    try:
+        rospy.wait_for_service('test_plot', timeout = 2)
+        test_plot = rospy.ServiceProxy('test_plot', TestPlot)
+    except Exception as e:
+        print('Service connection failed: {}'.format(e))
+
+
     pt = Path()
     pt.gen_circle_path([ax, ay], pts)
-
-    tr = Truck()
-    tr.set_values(ax, 0.1, 1*math.pi/2)
 
     l = 0.2
     translator = Translator(0, V)
@@ -108,24 +102,14 @@ def main():
     client_socket.sendto(command_msg, address)
     firstPack = False
 
-    plt.ion()
-    plt.figure()
-    plt.axis('square')
-    axl = 1.5*max(ax, ay)
-    plt.axis([-axl, axl, -axl, axl])
-
-    xxx, yyy = pt.split()
-    plt.plot(xxx, yyy)
-    for i in range(-int(axl + 1), int(axl + 1) + 1):
-        plt.plot([i, i], [-axl, axl], color = 'grey', linestyle = 'dashed')
-        plt.plot([-axl, axl], [i, i], color = 'grey', linestyle = 'dashed')
 
     sumy = 0
     ang = 1500
     while True:
         try:
-            x, y, yaw = tr.get_values()
-            omega, sumy = get_omega(pt,tr, V, tid, sumy)
+
+            response = test_plot()
+            omega, sumy = get_omega(pt, response, V, tid, sumy)
 
             if omega < 2*V/l:
                 translator.translateInput(omega)
@@ -138,17 +122,8 @@ def main():
             command_msg = packer.pack(*(ms,  ns, seqNum, vel, ang, gr))
             client_socket.sendto(command_msg, address)
 
-            yaw_in = yaw + omega*tid
-            yaw_in = yaw_in % (math.pi*2)
+            time.sleep(tid)
 
-            x_in = x + V*tid*math.cos(yaw_in)
-            y_in = y + V*tid*math.sin(yaw_in)
-
-            tr.set_values(x_in, y_in, yaw_in)
-            #time.sleep(tid)
-            plt.pause(tid)
-            plt.plot(x,y,'o')
-            #plt.draw()
         except KeyboardInterrupt:
             command_msg = packer.pack(
                             *(ms, ns, seqNum, init_velocity, init_angle,

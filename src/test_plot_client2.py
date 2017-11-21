@@ -22,6 +22,7 @@ if __name__ == '__main__':
                     resp.x, resp.y, resp.yaw, resp.timestamp))
             time.sleep(1)
 
+
     except rospy.ServiceException, e:
         print('Service call failed: {}'.format(e))
         sys.exit(1)
