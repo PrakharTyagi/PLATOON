@@ -2,6 +2,7 @@
 
 import sys
 import rospy
+import time
 from modeltruck_platooning.srv import state, stateRequest
 from modeltruck_platooning.msg import *
 
@@ -9,7 +10,12 @@ def get_truck_state(truck_id):
 	rospy.wait_for_service('truck_state')#waits until service is available
 	try:
 		truck_state = rospy.ServiceProxy('truck_state', state)
-		response1 = truck_state(1)
+		xx=0
+		while xx <200:
+			response1 = truck_state(truck_id)
+			print(response1.x)
+			time.sleep(0.5)
+			xx+=1
 		#response2 = truck_state(2)
 		#resp2 = truck_state(truck_id)
 

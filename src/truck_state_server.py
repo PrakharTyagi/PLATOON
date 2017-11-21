@@ -18,7 +18,7 @@ class truck_state:
 
 
 		#initialize mocap connection
-		self.mocap = Mocap(host = '192.168.1.10', info = 1)
+		self.mocap = Mocap(host = '192.168.1.10', info = 0)
 
 
 		#rospy.init_node('mocap_sender', anonymous = True)
@@ -26,8 +26,8 @@ class truck_state:
 		#self.pub2 = rospy.Publisher('Mocapstate2', VehicleState, queue_size = 1)
 		#self.pub3 = rospy.Publisher('Mocapstate3', VehicleState, queue_size = 1)
 
-		self.mocap_body1 =self.mocap.get_id_from_name('TruckVehicle1')
-		self.mocap_body2 =self.mocap.get_id_from_name('TruckVehicle2')
+		#self.mocap_body1 =self.mocap.get_id_from_name('TruckVehicle1')
+		self.mocap_body2 =self.mocap.get_id_from_name('truckVehicle2')
 		#self.mocap_body3 =self.mocap.get_id_from_name('TruckVehicle2')
 		#self.mocap_body2 = self.mocap.get_id_from_name('MiniTruck2')
 		#self.mocap_body3 = self.mocap.get_id_from_name('MiniTruck3')

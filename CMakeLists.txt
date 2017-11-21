@@ -11,6 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   rospy
   std_msgs
+  #statemsg
+  roscpp
 )
 
 ## System dependencies are found with CMake's conventions
@@ -49,15 +51,20 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
-  drive_param.msg
+#  drive_param.msg
+#  pathplan.msg
+  statemsg.msg
+  VehicleState.msg
 )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
+add_service_files(
+   FILES
+   gabsrv.srv
+   state.srv
 #   Service1.srv
 #   Service2.srv
-# )
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -70,6 +77,7 @@ add_message_files(
 generate_messages(
  DEPENDENCIES
  std_msgs
+ #statemsg
 )
 
 ################################################
@@ -104,7 +112,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS
   LIBRARIES keyboard_control
-  CATKIN_DEPENDS message_generation rospy std_msgs
+  CATKIN_DEPENDS message_generation rospy std_msgs statemsg
   DEPENDS system_lib
 )
 

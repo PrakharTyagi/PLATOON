@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 
 import rospy
@@ -23,3 +22,4 @@ def listener():
 
 if __name__ == '__main__':
     listener()
+
