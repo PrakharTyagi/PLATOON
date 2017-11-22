@@ -14,12 +14,13 @@ import time
 class Controller():
     """Class for subscribing to topic mocap data, calculate control input and
     send commands to the truck. """
-    def __init__(self, V, Ts, kp, ki, kd, const_vel, sum_limit):
-        self.node_name = 'controller_sub'
-        self.topic_name = 'truck2'
-        self.topic_type = truckmocap
-
-        self.address2 = ('192.168.1.193', 2390)
+    def __init__(self, V, Ts, kp, ki, kd, const_vel, sum_limit,
+                address = ('192.168.1.193', 2390), node_name = 'controller_sub',
+                topic_name = 'truck2', topic_type = truckmocap):
+        self.node_name = node_name
+        self.topic_name = topic_name
+        self.topic_type = topic_type
+        self.address = address
 
         self.V = V
         self.Ts = Ts
@@ -45,7 +46,7 @@ class Controller():
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.client_socket.settimeout(0.1)
 
-        self.send_data(self.address2, self.vel0, self.ang0, self.gr0, True)
+        self.send_data(self.address, self.vel0, self.ang0, self.gr0, True)
 
 
     def callback(self, data):
@@ -54,7 +55,7 @@ class Controller():
         self.translator.translateInput(omega)
         angle = int(self.translator.getMicroSec())
 
-        self.send_data(self.address2, self.const_vel, angle, self.gr0)
+        self.send_data(self.address, self.const_vel, angle, self.gr0)
 
 
     def send_data(self, address, velocity, angle, gear, firstPack = False):
@@ -113,9 +114,9 @@ class Controller():
 
 
     def stop_truck(self):
-        self.send_data(self.address2, self.vel0, self.ang0, self.gr0)
-        self.send_data(self.address2, self.vel0, self.ang0, self.gr0)
-        self.send_data(self.address2, self.vel0, self.ang0, self.gr0)
+        self.send_data(self.address, self.vel0, self.ang0, self.gr0)
+        self.send_data(self.address, self.vel0, self.ang0, self.gr0)
+        self.send_data(self.address, self.vel0, self.ang0, self.gr0)
         print('\nStopped truck')
 
 
@@ -127,27 +128,36 @@ class Controller():
 
 
 def main():
-    ax = 1.2    # Ellipse x-value.
-    ay = 1.2    # Ellipse y value.
+    ax = 1.2    # Ellipse x-radius.
+    ay = 1.2    # Ellipse y-radius.
     pts = 300   # Number of points on ellipse path.
 
-    V = 0.6     # Velocity (used by translator model, not arduino).
-    Ts = 0.05   # Sampling time (UNUSED).
+    V = 0.6             # Velocity used by translator model.
+    const_vel = 1460    # Constant velocity that is sent to the arduino.
+    Ts = 0.05           # Sampling time (UNUSED).
 
     # PID parameters.
     k_p = 0.5
     k_i = 0.001
     k_d = 0.3
-    sum_limit = 0.05    # Limit in accumulated error for I part of PID.
+    sum_limit = 0.5    # Limit in accumulated error for I part of PID.
 
-    const_vel = 1460    # Constant velocity that is sent to the arduino.
+    address = ('192.168.1.193', 2390)
 
-    ctrl = Controller(V, Ts, k_p, k_i, k_d, const_vel, sum_limit)
-    ctrl.pt.gen_circle_path([ax, ay], pts)  # Create reference path.
+    # Subscriber info.
+    node_name = 'controller_sub'
+    topic_name = 'truck2'
+    topic_type = truckmocap
+
+    controller = Controller(V, Ts, k_p, k_i, k_d, const_vel, sum_limit,
+        address = address, node_name = node_name,
+        topic_name = topic_name, topic_type = topic_type)
+
+    controller.pt.gen_circle_path([ax, ay], pts)  # Create reference path.
 
     rospy.spin()
 
-    ctrl.stop_truck()   # Stop truck after subscriber has terminated.
+    controller.stop_truck()   # Stop truck after subscriber has terminated.
 
 
 if __name__ == '__main__':

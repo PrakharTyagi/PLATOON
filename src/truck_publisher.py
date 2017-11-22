@@ -49,13 +49,15 @@ class Truck:
 
 class TruckPublisher():
     """Publisher class. Keeps an instance of the mocap or simulation object. """
-    def __init__(self):
-        self.topic_name = 'truck2'
-        self.topic_type = truckmocap
-        self.node_name = 'truck_pub'
-        self.queue_size = 10
-        self.update_freq = 20
-        self.mocap_used = False
+    def __init__(self, topic_name = 'truck2', topic_type = truckmocap,
+                node_name = 'truck_pub', update_freq = 20, mocap_used = True,
+                queue_size = 10):
+        self.topic_name = topic_name
+        self.topic_type = topic_type
+        self.node_name = node_name
+        self.queue_size = queue_size
+        self.update_freq = update_freq
+        self.mocap_used = mocap_used
 
         self.pub = rospy.Publisher(self.topic_name, self.topic_type,
             queue_size = self.queue_size)
@@ -89,7 +91,17 @@ class TruckPublisher():
 
 
 def main():
-    publ = TruckPublisher()
+    mocap_used = False      # True if using Mocap, False if using simulation.
+    freq = 20               # Publishing frequency in Hz.
+    # Publisher info
+    topic_name = 'truck2'
+    topic_type = truckmocap
+    node_name = 'truck_pub'
+    queue_size = 10
+
+    publ = TruckPublisher(mocap_used = False, topic_name = topic_name,
+        topic_type = topic_type, node_name = node_name, update_freq = freq,
+        queue_size = queue_size)
     publ.talker()
 
 if __name__ == '__main__':
