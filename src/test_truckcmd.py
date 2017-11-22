@@ -85,6 +85,7 @@ def receiver(vehicle_id):
         command_msg = packer.pack(
                         *(ms, ns, seqNum, init_velocity, init_angle, init_gear))
         client_socket.sendto(command_msg, address)
+        print('\nresetting')
 
 
 

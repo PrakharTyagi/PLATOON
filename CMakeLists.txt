@@ -51,12 +51,14 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   drive_param.msg
+  truckmocap.msg
 )
 
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
   TestPlot.srv
+  state.srv
 )
 
 ## Generate actions in the 'action' folder

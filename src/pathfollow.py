@@ -7,7 +7,7 @@ import math
 from socket import *
 import struct
 import sys
-
+import rospy
 
 class Truck:
 

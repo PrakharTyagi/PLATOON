@@ -19,19 +19,19 @@ class Translator:
         elif (w < 0):
             leftTurn = False
             #print("Turn Right")
-        self.speedMicro = 1400;
+
         self.turn(w, self.speed, leftTurn)
 
     def turn(self, w, v,leftTurn):
 
-        l = 0.2
-        x = 0.1
+        l = 0.25
+        x = l/2
         r = v/w
         if r**2 - x**2 > 0:
             den = math.sqrt(r**2-x**2)
             a = math.atan(l/den)
         else:
-            a = 30
+            a = math.pi/6
         microSec = 1500
 
         if(leftTurn == False):
@@ -52,9 +52,12 @@ class Translator:
 
     def getMicroSec(self):
         return self.microSec
+
     def getAngle(self):
         return self.angle
+
     def getSpeed(self):
         return self.speedMicro
+
     def getGear(self):
         return 60

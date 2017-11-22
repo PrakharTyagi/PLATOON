@@ -21,7 +21,7 @@ def sign(x):
 
 def get_omega(pt, response, V, tid, sumy):
     # Circle r 1 k = 0.005 others 0 ok.
-    k_py = 0.01
+    k_py = 0.5
     k_vy = 0.3
     k_i = 0.001
 
@@ -46,8 +46,8 @@ def get_omega(pt, response, V, tid, sumy):
 
     cos_t = math.cos(yaw-gamma)     # cos(theta)
     sin_t = math.sin(yaw-gamma)     # sin(theta)
-    den = 1/(1-gamma_p*ey)          # 1/(1-gamma_p*y)
-    cos_den = cos_t*den             # cos/(1-gamma_p*y)
+    # den = 1/(1-gamma_p*ey)          # 1/(1-gamma_p*y)
+    # cos_den = cos_t*den             # cos/(1-gamma_p*y)
 
     yp = math.tan(yaw - gamma)*(1 - gamma_p*ey)*sign(V*cos_t/(1 - gamma_p*ey))
     u = - k_py*ey - k_vy*yp - k_i * sumy
@@ -55,27 +55,34 @@ def get_omega(pt, response, V, tid, sumy):
                             gamma_p*(1 + sin_t**2) +
                             gamma_pp*ey*cos_t*sin_t/(1 - gamma_p*ey))
 
+
+
     return omega, sumy
 
 
 def main():
-    ax = 1.2
-    ay = 1.2
+    ax = 1.3
+    ay = 1.3
     pts = 300
     V = 1
-    tid = 0.01
+    tid = 0.05
 
-    init_velocity = 1500
+    l = 0.25
+
+    init_velocity = 1500    # Standstill values for stopping the truck.
     init_angle = 1500
     init_gear = 60
 
-    vel = 1500
+    vel = 1460          # Constant velocity used by truck.
     ang = init_angle
     gr = init_gear
 
+    service_name = 'test_plot'
+    service_type = TestPlot
+
     try:
-        rospy.wait_for_service('test_plot', timeout = 2)
-        test_plot = rospy.ServiceProxy('test_plot', TestPlot)
+        rospy.wait_for_service(service_name, timeout = 2)
+        srv_handle = rospy.ServiceProxy(service_name, service_type)
     except Exception as e:
         print('Service connection failed: {}'.format(e))
 
@@ -83,7 +90,6 @@ def main():
     pt = Path()
     pt.gen_circle_path([ax, ay], pts)
 
-    l = 0.2
     translator = Translator(0, V)
 
     seqNum = 0
@@ -107,7 +113,7 @@ def main():
     while True:
         try:
 
-            response = test_plot()
+            response = srv_handle()
             omega, sumy = get_omega(pt, response, V, tid, sumy)
 
             if omega < 2*V/l:

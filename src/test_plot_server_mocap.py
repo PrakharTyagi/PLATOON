@@ -23,7 +23,7 @@ class Truck:
 
 class CircleTruck():
     def __init__(self):
-        self.radius = 2
+        self.radius = 1.3
         self.theta0 = 0
         self.theta = self.theta0
         self.x = self.radius*math.cos(self.theta)

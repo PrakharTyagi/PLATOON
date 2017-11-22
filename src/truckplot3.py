@@ -32,8 +32,8 @@ class TruckPlot():
         self.save_filename = filename
         self.ts_placeholder = 0 # Instead of response.timestamp from service.
 
-        service_name = 'test_plot'
-        service_type = TestPlot
+        service_name = 'truck_state'
+        service_type = state
 
         # Try to connect to the server. Quit application if failed.
         try:
@@ -145,7 +145,7 @@ class TruckPlot():
         update step. """
         try:
             # Get data from the server.
-            response = self.srv_handle()
+            response = self.srv_handle(2)
             self.recorded_path.append([response.x, response.y])
             self._draw_canvas(response)
             self.time_text_var.set(
@@ -340,9 +340,9 @@ class TruckPlot():
 if __name__ == '__main__':
     width = 5
     height = 5
-    update_ts = 0.01
-    ax = 1.2
-    ay = 1.2
+    update_ts = 0.05
+    ax = 1.3
+    ay = 1.3
     filename = 'record'
 
     root = tk.Tk()
