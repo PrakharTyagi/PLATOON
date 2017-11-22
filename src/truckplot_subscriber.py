@@ -1,23 +1,26 @@
 #!/usr/bin/env python
 
-# Class for GUI that plots the truck trajectories.
+# Class for GUI that plots the truck trajectories. Subscribes to a topic.
 
 # TODO
 # Handle plotting of multiple trucks.
-# Add label indicating that recording is underway. Display time.
+# Add label indicating that recording is underway. Display elapsed time.
+# Display servertime. Currently self.ts_placeholder.
 
+from modeltruck_platooning.msg import *
 import rospy
-from modeltruck_platooning.srv import *
 import time
 import Tkinter as tk
 import path
 import math
 import os
 
+
 class TruckPlot():
     """Class for GUI that plots the truck trajectories. """
-    def __init__(self, root, filename = 'record1.txt',
-                    width = 5, height = 5, update_ts = 0.1):
+    def __init__(self, root, filename = 'record',
+                    width = 5, height = 5, update_ts = 0.1,
+                    display_tail = False):
         self.width = float(width)       # Real width (meters) of the window.
         self.height = float(height)
         self.win_height = 800           # Graphical window height.
@@ -30,27 +33,22 @@ class TruckPlot():
         self.recording = False
         self.saved_path = []        # Recorded path for saving to file.
         self.save_filename = filename
-        self.ts_placeholder = 0 # Instead of response.timestamp from service.
+        self.ts_placeholder = 0     # Elapsed time placeholder.
+        self.display_tail = display_tail
 
-        service_name = 'truck_state'
-        service_type = state
+        self.node_name = 'truckplot_sub'
+        self.topic_name = 'truck2'
+        self.topic_type = truckmocap
 
-        # Try to connect to the server. Quit application if failed.
-        try:
-            rospy.wait_for_service(service_name, timeout = 2)
-            self.srv_handle = rospy.ServiceProxy(service_name, service_type)
-        except Exception as e:
-            print('Service connection failed: {}'.format(e))
-            self.service_found = False
-
-        if not self.service_found:
-            print('No service found.')
-            self._quit1()
-            raise RuntimeError('Could not connect to server.')
-
+        # Stuff for canvas.
         bg_color = 'SlateGray2'
         w1 = 10
         ypad = 10
+
+        # Setup subscriber node.
+        rospy.init_node(self.node_name, anonymous = True)
+        rospy.Subscriber(self.topic_name, self.topic_type, self._callback)
+
         # Base frame.
         s_frame = tk.Frame(root, background = bg_color)
         s_frame.pack()
@@ -63,6 +61,8 @@ class TruckPlot():
                             borderwidth = 0, relief = tk.RAISED)
         self.canv.pack(in_ = canv_frame)
         self.canv.bind('<Button-1>', self._left_click)
+
+        self.tf2 = self.canv.create_polygon(0, 0, 0, 0, 0, 0, fill = 'green')
 
         # Create frame next to the canvas for buttons, labels etc.
         right_frame = tk.Frame(root, background = bg_color)
@@ -94,7 +94,8 @@ class TruckPlot():
         clear_button = tk.Button(root, text = 'Clear trajectories',
                             command = self._clear_trajectories,
                             width = w1, height = 2, background = 'orange',
-                            activebackground = 'dark orange')
+                            activebackground = 'dark orange',
+                            state = tk.DISABLED)
         clear_button.pack(in_ = button_frame)
 
         # Buttons for recording trajectories.
@@ -116,10 +117,10 @@ class TruckPlot():
         self.time_label.pack(in_ = bottom_frame)
 
         # Actions for closing the window and pressing ctrl-C on the window.
-        root.protocol("WM_DELETE_WINDOW", self._quit1)
+        root.protocol('WM_DELETE_WINDOW', self._quit1)
         root.bind('<Control-c>', self._quit2)
 
-        self._refresher()   # Start the refresher that draws everything.
+        self._draw_cf()
 
 
     def _left_click(self, event):
@@ -140,21 +141,17 @@ class TruckPlot():
         root.quit()
 
 
-    def _refresher(self):
-        """Runs every self.update_ts seconds. Calls all methods to run at each
-        update step. """
+    def _callback(self, data):
+        """Called when subscriber receives data. Calls all methods to run at
+        each update step. """
         try:
-            # Get data from the server.
-            response = self.srv_handle(2)
-            self.recorded_path.append([response.x, response.y])
-            self._draw_canvas(response)
+            self.recorded_path.append([data.x, data.y])
+            self._draw_canvas(data)
             self.time_text_var.set(
                 'Server time: \n{:.1f}'.format(self.ts_placeholder))
-            self._record_data(response)
+            self._record_data(data)
         except rospy.ServiceException as e:
             print('Service call failed: {}'.format(e))
-
-        root.after(int(self.update_ts*1000), self._refresher)
 
 
     def _draw_cf(self):
@@ -188,12 +185,10 @@ class TruckPlot():
     def _draw_canvas(self, resp):
         """Draws things that should be on the canvas. Coordinate frame, corner
         coordinate texts, path, truck trajectory, truck position. """
-        self.canv.delete('all')
-        self._draw_cf()
-        self._plot_sequence(self.pt.path, True)
-        self._plot_sequence(
-            self._tailn(self.recorded_path, int(self.tail_time/self.update_ts)),
-            False, 'green')
+        if self.display_tail:
+            self._plot_sequence(
+                self._tailn(self.recorded_path, 2), False, 'green')
+
         self._draw_truck(resp.x, resp.y, resp.yaw, 'green')
 
 
@@ -220,7 +215,7 @@ class TruckPlot():
         """Draws a triangle centered at the truck position. """
         l = 0.2 # Truck length in meters.
         w = 0.1
-        #print(yaw)
+
         # Coordinates for frontal corner.
         xf, yf = self._real_to_pixel(
             xreal + l/2*math.cos(yaw),
@@ -236,11 +231,11 @@ class TruckPlot():
             xreal - l/2*math.cos(yaw) + w/2*math.cos(yaw + math.pi/2),
             yreal - l/2*math.sin(yaw) + w/2*math.sin(yaw + math.pi/2))
 
-        self.canv.create_polygon(xf, yf, xr, yr, xl, yl, fill = clr)
-
+        self.canv.coords(self.tf2, xf, yf, xr, yr, xl, yl) # Move polygon.
 
 
     def _record_data(self, response):
+        """Appends data to the list recording the trajectory."""
         if self.recording:
             self.saved_path.append([response.x, response.y, response.yaw,
                                     self.ts_placeholder])
@@ -335,19 +330,21 @@ class TruckPlot():
     def gen_circle_path(self, radius, points):
         """Generates a circle/ellipse path. """
         self.pt.gen_circle_path(radius, points)
+        self._plot_sequence(self.pt.path, True)
 
 
 if __name__ == '__main__':
     width = 5
     height = 5
     update_ts = 0.05
-    ax = 1.3
+    ax = 1.5
     ay = 1.3
+    display_tail = True
     filename = 'record'
 
     root = tk.Tk()
     try:
-        pp = TruckPlot(root, filename, width, height, update_ts)
+        pp = TruckPlot(root, filename, width, height, update_ts, display_tail)
         pp.gen_circle_path([ax, ay], 200)
 
         try:

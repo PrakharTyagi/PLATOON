@@ -12,9 +12,12 @@ import time
 
 
 class Controller():
-    def __init__(self, V, Ts, kp, ki, kd, const_vel):
-        rospy.init_node('listener2', anonymous=True)
-        rospy.Subscriber("truck2", truckmocap, self.callback)
+    """Class for subscribing to topic mocap data, calculate control input and
+    send commands to the truck. """
+    def __init__(self, V, Ts, kp, ki, kd, const_vel, sum_limit):
+        self.node_name = 'controller_sub'
+        self.topic_name = 'truck2'
+        self.topic_type = truckmocap
 
         self.address2 = ('192.168.1.193', 2390)
 
@@ -25,13 +28,16 @@ class Controller():
         self.k_d = kd
         self.const_vel = const_vel
 
-        self.pt = path.Path()
-        self.vel0 = 1500        # Truck at zero velocity.
-        self.ang0 = 1500        # Neutral wheel angle.
-        self.gr0 = 60           # First gear
-        self.sumy = 0           # Accumulated error.
-        self.sum_limit = 0.05   # Limit for accumulated error.
+        self.vel0 = 1500            # Truck at zero velocity.
+        self.ang0 = 1500            # Neutral wheel angle.
+        self.gr0 = 60               # First gear
+        self.sumy = 0               # Accumulated error.
+        self.sum_limit = sum_limit  # Limit for accumulated error.
 
+        rospy.init_node(self.node_name, anonymous = True)
+        rospy.Subscriber(self.topic_name, self.topic_type, self.callback)
+
+        self.pt = path.Path()
         self.translator = translator.Translator(0, self.V)
 
         self.seqNum = 0
@@ -43,6 +49,7 @@ class Controller():
 
 
     def callback(self, data):
+        """Called when the subscriber receives data. """
         omega = self.get_omega(data)
         self.translator.translateInput(omega)
         angle = int(self.translator.getMicroSec())
@@ -51,6 +58,7 @@ class Controller():
 
 
     def send_data(self, address, velocity, angle, gear, firstPack = False):
+        """Sends data to the truck. """
         if firstPack:
             ms = 0xFFFFFFFF
             ns = 0xFFFFFFFF
@@ -69,6 +77,7 @@ class Controller():
 
 
     def get_omega(self, data):
+        """Calculate the control input omega. """
         x = data.x
         y = data.y
         yaw = data.yaw
@@ -104,10 +113,10 @@ class Controller():
 
 
     def stop_truck(self):
+        self.send_data(self.address2, self.vel0, self.ang0, self.gr0)
+        self.send_data(self.address2, self.vel0, self.ang0, self.gr0)
+        self.send_data(self.address2, self.vel0, self.ang0, self.gr0)
         print('\nStopped truck')
-        self.send_data(self.address2, self.vel0, self.ang0, self.gr0)
-        self.send_data(self.address2, self.vel0, self.ang0, self.gr0)
-        self.send_data(self.address2, self.vel0, self.ang0, self.gr0)
 
 
     def sign(self, x):
@@ -129,10 +138,11 @@ def main():
     k_p = 0.5
     k_i = 0.001
     k_d = 0.3
+    sum_limit = 0.05    # Limit in accumulated error for I part of PID.
 
     const_vel = 1460    # Constant velocity that is sent to the arduino.
 
-    ctrl = Controller(V, Ts, k_p, k_i, k_d, const_vel)  # Create controller.
+    ctrl = Controller(V, Ts, k_p, k_i, k_d, const_vel, sum_limit)
     ctrl.pt.gen_circle_path([ax, ay], pts)  # Create reference path.
 
     rospy.spin()
