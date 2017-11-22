@@ -1,0 +1,15 @@
+Step response
+
+Ändra vinkeln 10 (?) grader, logga resultatet
+
+A & L - se screen shot
+
+Ziegler-Nichols step response method:
+
+u = K [ e(t) + 1/T_i * integral(e(s))ds + T_d * d e(t) / dt ]
+
+K = 1.2 / A
+T_i = 2L
+T_d = L/2
+
+=> K_p = 1.2/A, K_i = 0.6/(A*L), K_d = 0.6*L/A
