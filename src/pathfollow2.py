@@ -59,11 +59,11 @@ def get_omega(pt, response, V, tid, sumy):
 
 
 def main():
-    ax = 1
+    ax = 1.2
     ay = 1.2
     pts = 300
     V = 1
-    tid = 0.1
+    tid = 0.01
 
     init_velocity = 1500
     init_angle = 1500

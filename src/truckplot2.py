@@ -14,6 +14,22 @@ import path
 import math
 import os
 
+from mocap_source_2 import Mocap
+
+class Truck:
+    def __init__(self):
+        #initialize mocap connection
+        self.mocap = Mocap(host = '192.168.1.10', info = 1)
+        self.mocap_body1 = self.mocap.get_id_from_name('truckVehicle2')
+
+    def get_values(self):
+        truck_state1 = self.mocap.get_body(self.mocap_body1)
+        x = truck_state1['x']
+        y = truck_state1['y']
+        yaw = truck_state1['yaw']
+
+        return x, y, yaw*math.pi/180
+
 class TruckPlot():
     """Class for GUI that plots the truck trajectories. """
     def __init__(self, root, filename = 'record1.txt',
@@ -30,20 +46,21 @@ class TruckPlot():
         self.recording = False
         self.saved_path = []        # Recorded path for saving to file.
         self.save_filename = filename
+        self.truck = Truck()
 
 
         # Try to connect to the server. Quit application if failed.
-        try:
-            rospy.wait_for_service('test_plot', timeout = 2)
-            self.test_plot = rospy.ServiceProxy('test_plot', TestPlot)
-        except Exception as e:
-            print('Service connection failed: {}'.format(e))
-            self.service_found = False
-
-        if not self.service_found:
-            print('No service found.')
-            self._quit1()
-            raise RuntimeError('Could not connect to server.')
+        # try:
+        #     rospy.wait_for_service('test_plot', timeout = 2)
+        #     self.test_plot = rospy.ServiceProxy('test_plot', TestPlot)
+        # except Exception as e:
+        #     print('Service connection failed: {}'.format(e))
+        #     self.service_found = False
+        #
+        # if not self.service_found:
+        #     print('No service found.')
+        #     self._quit1()
+        #     raise RuntimeError('Could not connect to server.')
 
         bg_color = 'SlateGray2'
         w1 = 10
@@ -142,12 +159,13 @@ class TruckPlot():
         update step. """
         try:
             # Get data from the server.
-            response = self.test_plot()
-            self.recorded_path.append([response.x, response.y])
-            self._draw_canvas(response)
+            #response = self.test_plot()
+            x, y, yaw = self.truck.get_values()
+            self.recorded_path.append([x, y])
+            self._draw_canvas(x, y, yaw)
             self.time_text_var.set(
-                'Server time: \n{:.1f}'.format(response.timestamp))
-            self._record_data(response)
+                'Server time: \n{:.1f}'.format(0))
+            self._record_data(x, y, yaw)
         except rospy.ServiceException as e:
             print('Service call failed: {}'.format(e))
 
@@ -182,7 +200,7 @@ class TruckPlot():
             anchor = 'ne')
 
 
-    def _draw_canvas(self, resp):
+    def _draw_canvas(self, x, y, yaw):
         """Draws things that should be on the canvas. Coordinate frame, corner
         coordinate texts, path, truck trajectory, truck position. """
         self.canv.delete('all')
@@ -191,7 +209,7 @@ class TruckPlot():
         self._plot_sequence(
             self._tailn(self.recorded_path, int(self.tail_time/self.update_ts)),
             False, 'green')
-        self._draw_truck(resp.x, resp.y, resp.yaw, 'green')
+        self._draw_truck(x, y, yaw, 'green')
 
 
     def _plot_sequence(self, seq, join, clr = 'blue', wid = 2):
@@ -237,10 +255,9 @@ class TruckPlot():
 
 
 
-    def _record_data(self, response):
+    def _record_data(self, x, y, yaw):
         if self.recording:
-            self.saved_path.append([response.x, response.y, response.yaw,
-                                    response.timestamp])
+            self.saved_path.append([x, y, yaw, 0])
 
 
     def _start_record(self):
@@ -337,7 +354,7 @@ class TruckPlot():
 if __name__ == '__main__':
     width = 5
     height = 5
-    update_ts = 0.01
+    update_ts = 0.05
     ax = 1.2
     ay = 1.2
     filename = 'record'

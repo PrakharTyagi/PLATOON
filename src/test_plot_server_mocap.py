@@ -10,7 +10,8 @@ class Truck:
     def __init__(self):
         #initialize mocap connection
         self.mocap = Mocap(host = '192.168.1.10', info = 1)
-        self.mocap_body1 = self.mocap.get_id_from_name('TruckVehicle2')
+        #self.mocap_body1 = self.mocap.get_id_from_name('TruckVehicle2')
+        self.mocap_body1 = self.mocap.get_id_from_name('truckVehicle2')
 
     def get_values(self):
         truck_state1 = self.mocap.get_body(self.mocap_body1)
@@ -52,7 +53,7 @@ class PlotServer():
 
         time_new = time.time()
         self.time_elapsed = time_new - self.init_time
-
+        #time.sleep(5)
         #x, y, yaw = self.truck.get_values()
         self.ct.update_pos(self.time_elapsed)
         x, y, yaw = self.ct.get_values()

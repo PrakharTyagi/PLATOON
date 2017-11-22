@@ -20,7 +20,7 @@ if __name__ == '__main__':
             resp = test_plot()
             print('whooo {}, {}, {}, {}'.format(
                     resp.x, resp.y, resp.yaw, resp.timestamp))
-            time.sleep(1)
+            time.sleep(0.01)
 
 
     except rospy.ServiceException, e:
