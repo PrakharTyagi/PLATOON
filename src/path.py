@@ -62,7 +62,7 @@ class Path:
             pass
 
 
-    def gen_circle_path(self, radius, points):
+    def gen_circle_path(self, radius, points, center = [0, 0]):
         """Generates a circle path with specified radius and number of
         points."""
         newpath = []
@@ -78,8 +78,8 @@ class Path:
             y_mag = radius
 
         for i in range(points):
-            x = x_mag*math.cos(2*math.pi*i/points)
-            y = y_mag*math.sin(2*math.pi*i/points)
+            x = center[0] + x_mag*math.cos(2*math.pi*i/points)
+            y = center[1] + y_mag*math.sin(2*math.pi*i/points)
             newpath.append([x, y])
 
         self.path = newpath
@@ -453,3 +453,5 @@ class Path:
 
 if __name__ == '__main__':
     pt = Path()
+    # pt.gen_circle_path([1, 1.4], 300, [1, 0])
+    # pt.plot()

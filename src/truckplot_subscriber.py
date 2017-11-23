@@ -343,7 +343,7 @@ class TruckPlot():
 
 if __name__ == '__main__':
     width = 5
-    height = 5
+    height = 7
     update_ts = 0.05
     ax = 1.5
     ay = 1.3

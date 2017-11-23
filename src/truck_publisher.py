@@ -91,7 +91,7 @@ class TruckPublisher():
 
 
 def main():
-    mocap_used = False      # True if using Mocap, False if using simulation.
+    mocap_used = True      # True if using Mocap, False if using simulation.
     freq = 20               # Publishing frequency in Hz.
     # Publisher info
     topic_name = 'truck2'
@@ -99,7 +99,7 @@ def main():
     node_name = 'truck_pub'
     queue_size = 10
 
-    publ = TruckPublisher(mocap_used = False, topic_name = topic_name,
+    publ = TruckPublisher(mocap_used = mocap_used, topic_name = topic_name,
         topic_type = topic_type, node_name = node_name, update_freq = freq,
         queue_size = queue_size)
     publ.talker()
