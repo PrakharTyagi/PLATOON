@@ -86,7 +86,7 @@ class TruckPublisher():
                 self.tr.update_pos(self.time_elapsed)
                 x, y, yaw = self.tr.get_values()
 
-            self.pub.publish(x, y, yaw)
+            self.pub.publish(x, y, yaw, self.time_elapsed)
             self.rate.sleep()
 
 

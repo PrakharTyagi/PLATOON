@@ -39,6 +39,7 @@ class TruckPlot():
         self._saved_path = []        # Recorded path for saving to file.
         self._recording = False
         self._ts_placeholder = 0     # Elapsed time placeholder.
+        self.timestamp = 0
 
         # Stuff for canvas.
         bg_color = 'SlateGray2'
@@ -148,8 +149,9 @@ class TruckPlot():
         try:
             self._recorded_path.append([data.x, data.y])
             self._draw_canvas(data)
+            self.timestamp = data.timestamp
             self.time_text_var.set(
-                'Server time: \n{:.1f}'.format(self._ts_placeholder))
+                'Server time: \n{:.1f}'.format(self.timestamp))
             self._record_data(data)
         except rospy.ServiceException as e:
             print('Service call failed: {}'.format(e))
@@ -243,7 +245,7 @@ class TruckPlot():
         """Appends data to the list recording the trajectory."""
         if self._recording:
             self._saved_path.append([response.x, response.y, response.yaw,
-                                    self._ts_placeholder])
+                                    self.timestamp])
 
 
     def _start_record(self):
