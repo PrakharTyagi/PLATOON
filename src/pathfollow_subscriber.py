@@ -3,6 +3,7 @@
 import rospy
 import path
 import translator
+import translator2
 from modeltruck_platooning.msg import *
 import math
 import struct
@@ -40,6 +41,7 @@ class Controller():
 
         self.pt = path.Path()
         self.translator = translator.Translator(0, self.V)
+        self.translator2 = translator2.Translator(0, self.V)
 
         self.seqNum = 0
         self.packer = struct.Struct('<IIHhhh')
@@ -53,9 +55,12 @@ class Controller():
         """Called when the subscriber receives data. """
         omega = self.get_omega(data)
         self.translator.translateInput(omega)
+        self.translator2.turn(-omega, self.V)
         angle = int(self.translator.getMicroSec())
+        angle2 = int(self.translator2.microSec)
+        print('{}, {:.4f}'.format(int(self.translator2.microSec), omega))
 
-        self.send_data(self.address, self.const_vel, angle, self.gr0)
+        self.send_data(self.address, self.const_vel, angle2, self.gr0)
 
 
     def send_data(self, address, velocity, angle, gear, firstPack = False):
@@ -92,7 +97,7 @@ class Controller():
         if self.sumy < -self.sum_limit:
             self.sumy = -self.sum_limit
 
-        print('Error: {:.4f}'.format(ey))
+        #print('Ctrl error: {:.4f}, sum error: {:.4f}'.format(ey, self.sumy))
 
         gamma = self.pt.get_gamma(index)
         gamma_p = self.pt.get_gammap(index)
@@ -128,7 +133,7 @@ class Controller():
 
 
 def main():
-    ax = 1.2    # Ellipse x-radius.
+    ax = 1.6    # Ellipse x-radius.
     ay = 1.2    # Ellipse y-radius.
     pts = 300   # Number of points on ellipse path.
 
@@ -137,10 +142,15 @@ def main():
     Ts = 0.05           # Sampling time (UNUSED).
 
     # PID parameters.
+    # 0.5, 0.01, 3, limit 0.05 ok
+    #0.7, -0.01 7 5000
+    #translator2: 0.5, -0.02, 3, 5000, V = 0.6
     k_p = 0.5
-    k_i = 0.001
-    k_d = 0.3
-    sum_limit = 0.5    # Limit in accumulated error for I part of PID.
+    k_i = -0.02
+    k_d = 3
+    sum_limit = 5000    # Limit in accumulated error for I part of PID.
+
+    center = [0.3, -0.5]
 
     address = ('192.168.1.193', 2390)
 
@@ -153,7 +163,7 @@ def main():
         address = address, node_name = node_name,
         topic_name = topic_name, topic_type = topic_type)
 
-    controller.pt.gen_circle_path([ax, ay], pts)  # Create reference path.
+    controller.pt.gen_circle_path([ax, ay], pts, center = center)  # Create reference path.
 
     rospy.spin()
 

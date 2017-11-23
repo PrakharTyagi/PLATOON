@@ -79,15 +79,20 @@ class TruckPublisher():
         while not rospy.is_shutdown():
             time_new = time.time()
             self.time_elapsed = time_new - self.init_time
+            try:
+                if self.mocap_used:
+                    x, y, yaw = self.tr.get_values()
+                    #print(x)
+                    self.pub.publish(x, y, yaw, self.time_elapsed)
+                    self.rate.sleep()
+                else:
+                    self.tr.update_pos(self.time_elapsed)
+                    x, y, yaw = self.tr.get_values()
+                    self.pub.publish(x, y, yaw, self.time_elapsed)
+                    self.rate.sleep()
+            except:
+                print('No mocap data\n\n')
 
-            if self.mocap_used:
-                x, y, yaw = self.tr.get_values()
-            else:
-                self.tr.update_pos(self.time_elapsed)
-                x, y, yaw = self.tr.get_values()
-
-            self.pub.publish(x, y, yaw, self.time_elapsed)
-            self.rate.sleep()
 
 
 def main():
@@ -97,7 +102,7 @@ def main():
     topic_name = 'truck2'
     topic_type = truckmocap
     node_name = 'truck_pub'
-    queue_size = 10
+    queue_size = 1
 
     publ = TruckPublisher(mocap_used = mocap_used, topic_name = topic_name,
         topic_type = topic_type, node_name = node_name, update_freq = freq,

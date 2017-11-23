@@ -20,7 +20,7 @@ import os
 class TruckPlot():
     """Class for GUI that plots the truck trajectories. """
     def __init__(self, root, filename = 'record', width = 5, height = 5,
-                update_ts = 0.1, display_tail = False, win_size = 800,
+                update_ts = 0.1, display_tail = False, win_size = 600,
                 node_name = 'truckplot_sub', topic_name = 'truck2',
                 topic_type = truckmocap):
 
@@ -335,24 +335,26 @@ class TruckPlot():
         self.pt.load(filename)
 
 
-    def gen_circle_path(self, radius, points):
+    def gen_circle_path(self, radius, points, center = [0, 0]):
         """Generates a circle/ellipse path. """
-        self.pt.gen_circle_path(radius, points)
+        self.pt.gen_circle_path(radius, points, center = center)
         self._plot_sequence(self.pt.path, join = True, tag = 'path')
 
 
+
 if __name__ == '__main__':
-    width = 5
-    height = 5
+    width = 6
+    height = 6
     update_ts = 0.05
-    ax = 1.5
-    ay = 1.3
+    ax = 1.6
+    ay = 1.2
     pts = 200
     display_tail = True
     filename = 'record'
     node_name = 'truckplot_sub'
     topic_name = 'truck2'
     topic_type = truckmocap
+    center = [0.3, -0.5]
 
     root = tk.Tk()
     try:
@@ -360,7 +362,9 @@ if __name__ == '__main__':
             height = height, update_ts = update_ts, display_tail = display_tail,
             node_name = node_name, topic_name = topic_name,
             topic_type = topic_type)
-        truckplot.gen_circle_path([ax, ay], pts)
+        truckplot.gen_circle_path([ax, ay], pts, center = center)
+        #truckplot.pt.plot()
+
 
         try:
             root.mainloop()

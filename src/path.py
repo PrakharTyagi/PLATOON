@@ -453,5 +453,5 @@ class Path:
 
 if __name__ == '__main__':
     pt = Path()
-    # pt.gen_circle_path([1, 1.4], 300, [1, 0])
-    # pt.plot()
+    pt.gen_circle_path([1.6, 1.2], 300, [0.3, -0.5])
+    pt.plot()
