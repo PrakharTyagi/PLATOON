@@ -96,18 +96,22 @@ class Path:
         """Interpolates the path. Returns a denser list that has added one
         set of intermediate points to the original path."""
         N = len(self.path)
-        interlist = [[0, 0] for i in range(N - 1)]
+        interlist = [[0, 0] for i in range(N)]
         for i in range(N - 1):
             interlist[i][0] = (self.path[i][0] + self.path[i + 1][0])/2
             interlist[i][1] = (self.path[i][1] + self.path[i + 1][1])/2
+        interlist[N - 1][0] = (self.path[N - 1][0] + self.path[0][0])/2
+        interlist[N - 1][1] = (self.path[N - 1][1] + self.path[0][1])/2
 
-        newlist = [[0, 0] for i in range(2*N - 1)]
+        newlist = [[0, 0] for i in range(2*N)]
         for i in range(N - 1):
             newlist[i*2] = self.path[i]
             newlist[i*2 + 1] = interlist[i]
+        newlist[2*N - 1] = interlist[N - 1]
         newlist[2*N - 2] = self.path[N - 1]
 
         self.path = newlist
+        self._calc_gammas()
 
 
     def plot(self, realh = 5, realw = 5):
@@ -449,11 +453,3 @@ class Path:
 
 if __name__ == '__main__':
     pt = Path()
-    pt.gen_circle_path([1.5, 2], 300)
-    #pt.reverse()
-    #pt.reverse()
-    #pt.load('hej2.txt')
-    pt.plot(5, 5)
-
-
-    #pt.save('hej2.txt')
