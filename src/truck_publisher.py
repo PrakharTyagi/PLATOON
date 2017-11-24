@@ -82,7 +82,6 @@ class TruckPublisher():
             try:
                 if self.mocap_used:
                     x, y, yaw = self.tr.get_values()
-                    #print(x)
                     self.pub.publish(x, y, yaw, self.time_elapsed)
                     self.rate.sleep()
                 else:
@@ -91,7 +90,8 @@ class TruckPublisher():
                     self.pub.publish(x, y, yaw, self.time_elapsed)
                     self.rate.sleep()
             except:
-                print('No mocap data\n\n')
+                print('No mocap data, time: {:.1f}\n'.format(
+                    self.time_elapsed))
 
 
 

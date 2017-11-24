@@ -55,7 +55,7 @@ class Controller():
         """Called when the subscriber receives data. """
         omega = self.get_omega(data)
         self.translator.translateInput(omega)
-        self.translator2.turn(-omega, self.V)
+        self.translator2.turn(omega, self.V)
         angle = int(self.translator.getMicroSec())
         angle2 = int(self.translator2.microSec)
         print('{}, {:.4f}'.format(int(self.translator2.microSec), omega))
