@@ -19,10 +19,9 @@ import os
 
 class TruckPlot():
     """Class for GUI that plots the truck trajectories. """
-    def __init__(self, root, filename = 'record', width = 5, height = 5,
-                display_tail = False, win_size = 600,
-                node_name = 'truckplot_sub', topic_name = 'truck2',
-                topic_type = truckmocap):
+    def __init__(self, root, node_name, topic_type, topic_name,
+        filename = 'record', width = 5, height = 5, display_tail = False,
+        win_size = 600, display_path = False):
         self.root = root
         self._width = float(width)       # Real width (meters) of the window.
         self._height = float(height)
@@ -30,6 +29,7 @@ class TruckPlot():
         self._win_width = int(self._win_height*self._width/self._height)
         self._save_filename = filename
         self._display_tail = display_tail
+        self._display_path = display_path
         self._node_name = node_name      # Subscriber node name.
         self._topic_name = topic_name    # Subscriber topic name.
         self._topic_type = topic_type    # Subscriber topic type.
@@ -42,9 +42,14 @@ class TruckPlot():
         self._timestamp = 0
         self._rec_start_time = 0
 
+        self.xr = 0
+        self.yr = 0
+        self.xc = 0
+        self.yc = 0
+
         # Stuff for canvas.
         bg_color = 'SlateGray2'
-        w1 = 10
+        w1 = 15
         ypad = 10
         self._truckl = 0.2
         self._truckw = 0.1
@@ -75,21 +80,24 @@ class TruckPlot():
         # Create button frame.
         button_frame = tk.Frame(self.root, background = bg_color)
         button_frame.pack(in_ = right_frame, side = tk.TOP, anchor = tk.N,
-                            pady = (0, ypad))
+                            pady = (0, 2*ypad))
 
         traj_frame = tk.Frame(self.root, background = bg_color)
         traj_frame.pack(in_ = right_frame, side = tk.TOP, anchor = tk.N,
-                            pady = (0, ypad))
+                            pady = (0, 2*ypad))
 
         # Create frame for recording widgets.
         record_frame = tk.Frame(self.root, background = bg_color)
         record_frame.pack(in_ = right_frame, side = tk.TOP,
-                            anchor = tk.N, pady = (0, ypad))
+                            anchor = tk.N, pady = (0, 2*ypad))
+
+        path_frame = tk.Frame(self.root, background = bg_color)
+        path_frame.pack(in_ = right_frame, side = tk.TOP, pady = (0, 2*ypad))
 
         # Create bottom frame for other stuff.
         bottom_frame = tk.Frame(self.root, background = bg_color)
         bottom_frame.pack(in_ = right_frame, side = tk.TOP, anchor = tk.N,
-                            pady = (3*ypad, 0))
+                            pady = (2*ypad, 0))
 
         # Button for quitting the program.
         quit_button = tk.Button(self.root, text = 'Quit',
@@ -106,14 +114,14 @@ class TruckPlot():
             background = bg_color)
         if self._display_tail:
             self.traj_button.toggle()
-        self.traj_button.pack(in_ = traj_frame)
+        self.traj_button.pack(in_ = traj_frame, side = tk.TOP)
 
         # Button for clearing trajectories.
         self.clear_button = tk.Button(self.root, text = 'Clear trajectories',
                             command = self._clear_trajectories,
                             width = w1, height = 2, background = 'orange',
                             activebackground = 'dark orange')
-        self.clear_button.pack(in_ = traj_frame)
+        self.clear_button.pack(in_ = traj_frame, side = tk.TOP)
 
         # Buttons for recording trajectories.
         self.start_record_button = tk.Button(
@@ -134,6 +142,47 @@ class TruckPlot():
         self.rec_time_text_var.set('Not recording\n')
         self.rec_time_label.pack(in_ = record_frame)
 
+        # Widgets for changing reference path.
+        self.path_label = tk.Label(self.root, text = 'REFERENCE PATH',
+            background = bg_color)
+        self.path_label.pack(in_ = path_frame, side = tk.TOP)
+
+        # Checkbox for displaying trajectories.
+        self.path_button_var = tk.IntVar()
+        self.path_button = tk.Checkbutton(self.root,
+            text = 'Display\nreference path', variable = self.path_button_var,
+            command = self._path_btn_callback, width = w1, height = 2,
+            background = bg_color)
+        if self._display_path:
+            self.path_button.toggle()
+        self.path_button.pack(in_ = path_frame, side = tk.TOP)
+
+        self.xr_var = tk.StringVar()
+        self.xr_var.set(0)
+        self.make_entry(path_frame, bg_color, 'x_radius',
+            textvariable = self.xr_var)
+
+        self.yr_var = tk.StringVar()
+        self.yr_var.set(0)
+        self.make_entry(path_frame, bg_color, 'y_radius',
+            textvariable = self.yr_var)
+
+        self.xc_var = tk.StringVar()
+        self.xc_var.set(0)
+        self.make_entry(path_frame, bg_color, 'x_offset',
+            textvariable = self.xc_var)
+
+        self.yc_var = tk.StringVar()
+        self.yc_var.set(0)
+        self.make_entry(path_frame, bg_color, 'y_offset',
+            textvariable = self.yc_var)
+
+        self.apply_path_button = tk.Button(self.root,
+            text = 'Apply new\nreference path', command = self.apply_path,
+            width = w1, height = 2, background = 'PaleGreen3',
+            activebackground = 'PaleGreen4')
+        self.apply_path_button.pack(in_ = path_frame, side = tk.TOP)
+
         # Label displaying the elapsed server time.
         self.time_text_var = tk.StringVar()
         self.time_label = tk.Label(self.root, textvariable = self.time_text_var,
@@ -149,6 +198,40 @@ class TruckPlot():
 
         # Draw the coordinate arrows and coordinate labels in corners.
         self._draw_cf()
+
+
+    def make_entry(self, framep, background, caption, **options):
+        """Creates an entry widget. """
+        frame = tk.Frame(self.root, background = background)
+        frame.pack(in_ = framep, side = tk.TOP)
+        lbl = tk.Label(self.root, text = caption, background = background,
+            width = 8, anchor = tk.W)
+        lbl.pack(in_ = frame, side = tk.LEFT)
+        entry = tk.Entry(self.root, width = 9, **options)
+        entry.pack(in_ = frame, side = tk.LEFT)
+
+
+    def apply_path(self):
+        """Apply changes made to the reference path in the entry widgets. """
+        try:
+            xr = float(self.xr_var.get())
+            yr = float(self.yr_var.get())
+            xc = float(self.xc_var.get())
+            yc = float(self.yc_var.get())
+            if xr <= 0 or yr <= 0:
+                print('Invalid values entered')
+            else:
+                self.gen_circle_path([xr, yr], 400, [xc, yc])
+                print('New reference path applied.')
+        except Exception as e:
+            print('Invalid values entered.')
+
+        self.xr_var.set(self.xr)
+        self.yr_var.set(self.yr)
+        self.xc_var.set(self.xc)
+        self.yc_var.set(self.yc)
+
+        self.apply_path_button.focus()
 
 
     def _left_click(self, event):
@@ -288,6 +371,19 @@ class TruckPlot():
             #self.clear_button.config(state = 'disabled')
 
 
+    def _path_btn_callback(self):
+        """Callback for trajectory check button. Enable/disaple plottinf of
+        trajectories. """
+        if self.path_button_var.get() == 1:
+            self._display_path = True
+            self._plot_sequence(self.pt.path, join = True, tag = 'path',
+                clr = 'blue', width = 2)
+            self.clear_button.config(state = 'normal')
+        else:
+            self._display_path = False
+            self._canv.delete('path')
+
+
     def _record_data(self, response):
         """Appends data to the list recording the trajectory."""
         if self._recording:
@@ -303,6 +399,7 @@ class TruckPlot():
         if self._recording:
             print('Already recording.')
         else:
+            self._clear_trajectories()
             self._recorded_path = []
             self._recording = True
             self.start_record_button.config(state = 'disabled')
@@ -387,15 +484,40 @@ class TruckPlot():
     def load_path(self, filename):
         """Loads a path from a file. """
         self.pt.load(filename)
-        self._plot_sequence(self.pt.path, join = True, tag = 'path',
-            clr = 'blue', width = 2)
+        self._draw_path()
 
 
     def gen_circle_path(self, radius, points, center = [0, 0]):
         """Generates a circle/ellipse path. """
-        self.pt.gen_circle_path(radius, points, center = center)
-        self._plot_sequence(self.pt.path, join = True, tag = 'path',
-            clr = 'blue', width = 2)
+        if isinstance(radius, list):
+            if len(radius) > 1:
+                self.xr = radius[0]
+                self.yr = radius[1]
+            else:
+                self.xr = radius[0]
+                self.yr = radius[0]
+        else:
+            self.xr = radius
+            self.yr = radius
+
+        self.xc = center[0]
+        self.yc = center[1]
+
+        self.xr_var.set(self.xr)
+        self.yr_var.set(self.yr)
+        self.xc_var.set(self.xc)
+        self.yc_var.set(self.yc)
+
+        self.pt.gen_circle_path([self.xr, self.yr], points, [self.xc, self.yc])
+        self._canv.delete('path')
+        self._draw_path()
+
+
+    def _draw_path(self):
+        """Draws the reference path. """
+        if self._display_path:
+            self._plot_sequence(self.pt.path, join = True, tag = 'path',
+                clr = 'blue', width = 2)
 
 
 def main():
@@ -413,10 +535,9 @@ def main():
 
     root = tk.Tk()
     try:
-        truckplot = TruckPlot(root, filename = filename, width = width,
-            height = height, display_tail = display_tail,
-            node_name = node_name, topic_name = topic_name,
-            topic_type = topic_type)
+        truckplot = TruckPlot(root, node_name, topic_type, topic_name,
+            filename = filename, width = width, height = height,
+            display_tail = display_tail)
 
         truckplot.gen_circle_path([x_radius, y_radius], pts, center = center)
 
