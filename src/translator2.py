@@ -16,7 +16,7 @@ class Translator:
         self.rdict = {0.7172:1200, 0.7849:1250, 0.8633:1300,1.1609:1350,1.3933:1400,0: 1200, 99999:1500}
         self.ldict = {1.0417:1800, 1.0422:1750, 1.1382:1700,1.4199:1650,1.3138:1600,0: 1800, 99999:1500}
 
-        # List containing measurements of rpms and resulting speeds.
+        # List containing measurements of pwms and resulting speeds.
         self.speeds = [[1200, 3.0], [1250, 2.1], [1400, 1.2], [1300, 1.7],
                     [1450, 0.78], [1500, 0]]
         self.speeds.sort(key = lambda x: x[1])
@@ -84,7 +84,7 @@ class Translator:
 
 
     def translate_speed(self, v):
-        """Calculates the rpm value corresponding to the desired speed v.
+        """Calculates the pwm value corresponding to the desired speed v.
         Interpolates linearly from a list of measurements. """
         length = len(self.speeds)
 
@@ -120,6 +120,10 @@ class Translator:
         if self.speedMicro < self.throttle_min:
             self.speedMicro = self.throttle_min
 
+    def get_vel(self, v):
+        """Translates the speed v in m/s to microseconds and returns it. """
+        self.translate_speed(v)
+        return self.speedMicro
 
     def getMicroSec(self):
         return float(self.microSec)
