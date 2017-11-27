@@ -34,8 +34,8 @@ class TruckPlot():
 
         # Try to connect to the server. Quit application if failed.
         try:
-            rospy.wait_for_service('test_plot', timeout = 2)
-            self.test_plot = rospy.ServiceProxy('test_plot', TestPlot)
+            rospy.wait_for_service('truck_state', timeout = 2)
+            self.test_plot = rospy.ServiceProxy('truck_state', state)
         except Exception as e:
             print('Service connection failed: {}'.format(e))
             self.service_found = False
@@ -142,16 +142,17 @@ class TruckPlot():
         update step. """
         try:
             # Get data from the server.
-            response = self.test_plot()
+	    response = self.test_plot(2)
+            #response = self.test_plot()
             self.recorded_path.append([response.x, response.y])
             self._draw_canvas(response)
             self.time_text_var.set(
-                'Server time: \n{:.1f}'.format(response.timestamp))
+                'Server time: \n{:.1f}'.format(response.x))
             self._record_data(response)
         except rospy.ServiceException as e:
             print('Service call failed: {}'.format(e))
 
-        root.after(int(self.update_ts*1000), self._refresher)
+        root.after(int(self.update_ts*100000), self._refresher)
 
 
     def _draw_cf(self):

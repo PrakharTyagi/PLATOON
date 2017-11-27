@@ -423,8 +423,14 @@ def _parser_comm(socket):
 
         qtm_message_bytes,r = recv_basic(socket,msg_size-8) #receive the message (size+type are 8B)
         rcvd_size += r
-        qtm_message = qtm_message_bytes.decode("UTF-8")
-        msg['message']=qtm_message
+	try:
+		qtm_message = qtm_message_bytes.decode("UTF-8")
+		#qtm_message = unicode (qtm_message, errors ="ignore")
+		#qtm_message = unicode(qtm_message, errors="replace")
+		msg['message']=qtm_message
+	except UnicodeDecodeError:
+		print("kaos")
+	
 
     if rcvd_size!=msg_size:
         print msg_size-rcvd_size," bytes not received"

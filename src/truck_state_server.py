@@ -26,7 +26,7 @@ class truck_state:
 		#self.pub2 = rospy.Publisher('Mocapstate2', VehicleState, queue_size = 1)
 		#self.pub3 = rospy.Publisher('Mocapstate3', VehicleState, queue_size = 1)
 
-		#self.mocap_body1 =self.mocap.get_id_from_name('TruckVehicle1')
+		self.mocap_body1 =self.mocap.get_id_from_name('TruckVehicle1')
 		self.mocap_body2 =self.mocap.get_id_from_name('truckVehicle2')
 		#self.mocap_body3 =self.mocap.get_id_from_name('TruckVehicle2')
 		#self.mocap_body2 = self.mocap.get_id_from_name('MiniTruck2')
@@ -89,7 +89,7 @@ class truck_state:
 				return msg
 
 		else:
-			print("No such truck")
+			print("No such truck m8")
 			pass
 		#print("Returning state of truck %s: %s %s %s" % (truck_id,msg.x,msg.y,msg.yaw))
 

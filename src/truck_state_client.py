@@ -11,16 +11,16 @@ def get_truck_state(truck_id):
 	try:
 		truck_state = rospy.ServiceProxy('truck_state', state)
 		xx=0
-		while xx <200:
+		while xx <20000:
 			response1 = truck_state(truck_id)
-			print(response1.x)
-			time.sleep(0.5)
+			print(response1.x, response1.y, response1.yaw)
+			time.sleep(0.05)
 			xx+=1
 		#response2 = truck_state(2)
 		#resp2 = truck_state(truck_id)
 
 		#print(resp1)
-		return response1 # response2
+		return response1.x, response1.y, response1.yaw # response2
 
 	except rospy.ServiceException, e:
 		print "Service call failed: %s"%e
