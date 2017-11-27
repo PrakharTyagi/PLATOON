@@ -4,8 +4,6 @@
 
 # TODO
 # Handle plotting of multiple trucks.
-# Add label indicating that recording is underway. Display elapsed time.
-# Display servertime. Currently displaying self._ts_placeholder = 0.
 # Support fixed displayed tail length.
 
 from modeltruck_platooning.msg import *
@@ -20,26 +18,25 @@ import os
 class TruckPlot():
     """Class for GUI that plots the truck trajectories. """
     def __init__(self, root, node_name, topic_type, topic_name,
-        filename = 'record', width = 5, height = 5, display_tail = False,
+        filename = 'record', width = 5, height = 5, display_tail = True,
         win_size = 600, display_path = False):
         self.root = root
-        self._width = float(width)       # Real width (meters) of the window.
-        self._height = float(height)
-        self._win_height = win_size      # Graphical window height.
-        self._win_width = int(self._win_height*self._width/self._height)
-        self._save_filename = filename
-        self._display_tail = display_tail
-        self._display_path = display_path
-        self._node_name = node_name      # Subscriber node name.
-        self._topic_name = topic_name    # Subscriber topic name.
-        self._topic_type = topic_type    # Subscriber topic type.
+        self.width = float(width)       # Real width (meters) of the window.
+        self.height = float(height)
+        self.win_height = win_size      # Graphical window height.
+        self.win_width = int(self.win_height*self.width/self.height)
+        self.save_filename = filename
+        self.display_tail = display_tail
+        self.display_path = display_path
+        self.node_name = node_name      # Subscriber node name.
+        self.topic_name = topic_name    # Subscriber topic name.
+        self.topic_type = topic_type    # Subscriber topic type.
 
         self.pt = path.Path()       # A fixed path to draw.
-        self._saved_trajectory = []    # Recorded path of a truck for plotting.
-        self._recorded_path = []        # Recorded path for saving to file.
-        self._recording = False
-        self._ts_placeholder = 0     # Elapsed time placeholder.
-        self._timestamp = 0
+        self.saved_trajectory = []    # Recorded path of a truck for plotting.
+        self.recorded_path = []        # Recorded path for saving to file.
+        self.recording = False
+        self.timestamp = 0
         self._rec_start_time = 0
 
         self.xr = 0
@@ -51,12 +48,12 @@ class TruckPlot():
         bg_color = 'SlateGray2'
         w1 = 15
         ypad = 10
-        self._truckl = 0.2
-        self._truckw = 0.1
+        self.truckl = 0.2
+        self.truckw = 0.1
 
         # Setup subscriber node.
-        rospy.init_node(self._node_name, anonymous = True)
-        rospy.Subscriber(self._topic_name, self._topic_type, self._callback)
+        rospy.init_node(self.node_name, anonymous = True)
+        rospy.Subscriber(self.topic_name, self.topic_type, self._callback)
 
         # Base frame.
         s_frame = tk.Frame(self.root, background = bg_color)
@@ -65,13 +62,13 @@ class TruckPlot():
         # Create canvas frame with a canvas for drawing in.
         canv_frame = tk.Frame(self.root)
         canv_frame.pack(in_ = s_frame, side= tk.LEFT)
-        self._canv = tk.Canvas(self.root, width = self._win_width,
-                            height = self._win_height, background='#FFFFFF',
+        self.canv = tk.Canvas(self.root, width = self.win_width,
+                            height = self.win_height, background='#FFFFFF',
                             borderwidth = 0, relief = tk.RAISED)
-        self._canv.pack(in_ = canv_frame)
-        self._canv.bind('<Button-1>', self._left_click)
+        self.canv.pack(in_ = canv_frame)
+        self.canv.bind('<Button-1>', self._left_click)
 
-        self._tr2 = self._canv.create_polygon(0, 0, 0, 0, 0, 0, fill = 'green')
+        self.tr2 = self.canv.create_polygon(0, 0, 0, 0, 0, 0, fill = 'green')
 
         # Create frame next to the canvas for buttons, labels etc.
         right_frame = tk.Frame(self.root, background = bg_color)
@@ -112,7 +109,7 @@ class TruckPlot():
             text = 'Display\ntrajectories', variable = self.traj_button_var,
             command = self._traj_btn_callback, width = w1, height = 2,
             background = bg_color)
-        if self._display_tail:
+        if self.display_tail:
             self.traj_button.toggle()
         self.traj_button.pack(in_ = traj_frame, side = tk.TOP)
 
@@ -153,32 +150,32 @@ class TruckPlot():
             text = 'Display\nreference path', variable = self.path_button_var,
             command = self._path_btn_callback, width = w1, height = 2,
             background = bg_color)
-        if self._display_path:
+        if self.display_path:
             self.path_button.toggle()
         self.path_button.pack(in_ = path_frame, side = tk.TOP)
 
         self.xr_var = tk.StringVar()
         self.xr_var.set(0)
-        self.make_entry(path_frame, bg_color, 'x_radius',
+        self._make_entry(path_frame, bg_color, 'x_radius',
             textvariable = self.xr_var)
 
         self.yr_var = tk.StringVar()
         self.yr_var.set(0)
-        self.make_entry(path_frame, bg_color, 'y_radius',
+        self._make_entry(path_frame, bg_color, 'y_radius',
             textvariable = self.yr_var)
 
         self.xc_var = tk.StringVar()
         self.xc_var.set(0)
-        self.make_entry(path_frame, bg_color, 'x_offset',
+        self._make_entry(path_frame, bg_color, 'x_offset',
             textvariable = self.xc_var)
 
         self.yc_var = tk.StringVar()
         self.yc_var.set(0)
-        self.make_entry(path_frame, bg_color, 'y_offset',
+        self._make_entry(path_frame, bg_color, 'y_offset',
             textvariable = self.yc_var)
 
         self.apply_path_button = tk.Button(self.root,
-            text = 'Apply new\nreference path', command = self.apply_path,
+            text = 'Apply new\nreference path', command = self._apply_path,
             width = w1, height = 2, background = 'PaleGreen3',
             activebackground = 'PaleGreen4')
         self.apply_path_button.pack(in_ = path_frame, side = tk.TOP)
@@ -200,7 +197,7 @@ class TruckPlot():
         self._draw_cf()
 
 
-    def make_entry(self, framep, background, caption, **options):
+    def _make_entry(self, framep, background, caption, **options):
         """Creates an entry widget. """
         frame = tk.Frame(self.root, background = background)
         frame.pack(in_ = framep, side = tk.TOP)
@@ -211,7 +208,7 @@ class TruckPlot():
         entry.pack(in_ = frame, side = tk.LEFT)
 
 
-    def apply_path(self):
+    def _apply_path(self):
         """Apply changes made to the reference path in the entry widgets. """
         try:
             xr = float(self.xr_var.get())
@@ -256,11 +253,11 @@ class TruckPlot():
         """Called when subscriber receives data. Calls all methods to run at
         each update step. """
         try:
-            self._saved_trajectory.append([data.x, data.y])
+            self.saved_trajectory.append([data.x, data.y])
             self._draw_canvas(data)
-            self._timestamp = data.timestamp
+            self.timestamp = data.timestamp
             self.time_text_var.set(
-                'Server time: \n{:.1f}'.format(self._timestamp))
+                'Server time: \n{:.1f}'.format(self.timestamp))
             self._record_data(data)
         except Exception as e:
             print('Error in callback: {}'.format(e))
@@ -271,46 +268,46 @@ class TruckPlot():
         in the corners. """
         cftag = 'cf'
         # Create origin coordinate arrows.
-        self._canv.create_line(int(self._win_width/2), int(self._win_height/2),
-                            int(self._win_width/2), int(self._win_height/2) - 50,
+        self.canv.create_line(int(self.win_width/2), int(self.win_height/2),
+                            int(self.win_width/2), int(self.win_height/2) - 50,
                             width = 2, arrow = 'last', tag = cftag)
-        self._canv.create_line(int(self._win_width/2), int(self._win_height/2),
-                            int(self._win_width/2) + 50, int(self._win_height/2),
+        self.canv.create_line(int(self.win_width/2), int(self.win_height/2),
+                            int(self.win_width/2) + 50, int(self.win_height/2),
                             width = 2, arrow = 'last', tag = cftag)
 
         # Add coordinates to the corners.
         d = 6
-        self._canv.create_text(
+        self.canv.create_text(
             d, d,
             text = '({:.1f}, {:.1f})'.format(
-                -self._width/2, self._height/2),
+                -self.width/2, self.height/2),
             anchor = 'nw', tag = cftag)
-        self._canv.create_text(
-            d, self._win_height - d,
+        self.canv.create_text(
+            d, self.win_height - d,
             text = '({:.1f}, {:.1f})'.format(
-                -self._width/2, -self._height/2),
+                -self.width/2, -self.height/2),
             anchor = 'sw', tag = cftag)
-        self._canv.create_text(
-            self._win_width - d, self._win_height - d,
+        self.canv.create_text(
+            self.win_width - d, self.win_height - d,
             text = '({:.1f}, {:.1f})'.format(
-                self._width/2, -self._height/2),
+                self.width/2, -self.height/2),
             anchor = 'se', tag = cftag)
-        self._canv.create_text(
-            self._win_width - d, d,
+        self.canv.create_text(
+            self.win_width - d, d,
             text = '({:.1f}, {:.1f})'.format(
-                self._width/2, self._height/2),
+                self.width/2, self.height/2),
             anchor = 'ne', tag = cftag)
 
 
     def _draw_canvas(self, resp):
         """Draws things that should be on the canvas. Coordinate frame, corner
         coordinate texts, path, truck trajectory, truck position. """
-        if self._display_tail:
+        if self.display_tail:
             self._plot_sequence(
-                self._tailn(self._saved_trajectory, 2), join = False,
+                self._tailn(self.saved_trajectory, 2), join = False,
                 clr = 'green', tag = 'traj')
 
-        self._move_truck(self._tr2, resp.x, resp.y, resp.yaw)
+        self._move_truck(self.tr2, resp.x, resp.y, resp.yaw)
 
 
     def _plot_sequence(self, seq, join = False, clr = 'blue', width = 2,
@@ -327,7 +324,7 @@ class TruckPlot():
                 for i in range(starti,len(seq)):
                     x1, y1 = self._real_to_pixel(seq[i - 1][0], seq[i - 1][1])
                     x2, y2 = self._real_to_pixel(seq[i][0], seq[i][1])
-                    self._canv.create_line(x1, y1, x2, y2,
+                    self.canv.create_line(x1, y1, x2, y2,
                                         fill = clr, width = width, tag = tag)
             except Exception as e:
                 print('Error when plotting sequence: {}'.format(e))
@@ -335,8 +332,8 @@ class TruckPlot():
 
     def _move_truck(self, truck, xreal, yreal, yaw):
         """Moves a truck triangle to the new position. """
-        l = self._truckl # Truck length in meters.
-        w = self._truckw
+        l = self.truckl # Truck length in meters.
+        w = self.truckw
 
         # Coordinates for frontal corner.
         xf, yf = self._real_to_pixel(
@@ -353,21 +350,21 @@ class TruckPlot():
             xreal - l/2*math.cos(yaw) + w/2*math.cos(yaw + math.pi/2),
             yreal - l/2*math.sin(yaw) + w/2*math.sin(yaw + math.pi/2))
 
-        self._canv.tag_raise(truck)  # Move to top level of canvas.
-        self._canv.coords(truck, xf, yf, xr, yr, xl, yl) # Move polygon.
+        self.canv.tag_raise(truck)  # Move to top level of canvas.
+        self.canv.coords(truck, xf, yf, xr, yr, xl, yl) # Move polygon.
 
 
     def _traj_btn_callback(self):
         """Callback for trajectory check button. Enable/disaple plottinf of
         trajectories. """
         if self.traj_button_var.get() == 1:
-            self._display_tail = True
-            self._plot_sequence(self._saved_trajectory, clr = 'green',
+            self.display_tail = True
+            self._plot_sequence(self.saved_trajectory, clr = 'green',
                 tag = 'traj')
             self.clear_button.config(state = 'normal')
         else:
-            self._display_tail = False
-            self._canv.delete('traj')
+            self.display_tail = False
+            self.canv.delete('traj')
             #self.clear_button.config(state = 'disabled')
 
 
@@ -375,20 +372,20 @@ class TruckPlot():
         """Callback for trajectory check button. Enable/disaple plottinf of
         trajectories. """
         if self.path_button_var.get() == 1:
-            self._display_path = True
+            self.display_path = True
             self._plot_sequence(self.pt.path, join = True, tag = 'path',
                 clr = 'blue', width = 2)
             self.clear_button.config(state = 'normal')
         else:
-            self._display_path = False
-            self._canv.delete('path')
+            self.display_path = False
+            self.canv.delete('path')
 
 
     def _record_data(self, response):
         """Appends data to the list recording the trajectory."""
-        if self._recording:
-            self._recorded_path.append([response.x, response.y, response.yaw,
-                                    self._timestamp])
+        if self.recording:
+            self.recorded_path.append([response.x, response.y, response.yaw,
+                                    self.timestamp])
             self.rec_time_text_var.set(
                 'Recording: \n{:.1f}'.format(
                     time.time() - self._rec_start_time))
@@ -396,12 +393,12 @@ class TruckPlot():
 
     def _start_record(self):
         """Starts a new recording of trajectories."""
-        if self._recording:
+        if self.recording:
             print('Already recording.')
         else:
             self._clear_trajectories()
-            self._recorded_path = []
-            self._recording = True
+            self.recorded_path = []
+            self.recording = True
             self.start_record_button.config(state = 'disabled')
             self.stop_record_button.config(state = 'normal')
             self._rec_start_time = time.time()
@@ -411,10 +408,10 @@ class TruckPlot():
 
     def _stop_record(self):
         """Stops current recording of trajectories."""
-        if not self._recording:
+        if not self.recording:
             print('No recording is running.')
         else:
-            self._recording = False
+            self.recording = False
             self.start_record_button.config(state = 'normal')
             self.stop_record_button.config(state = 'disabled')
             self.rec_time_text_var.set('Not recording\n')
@@ -432,15 +429,15 @@ class TruckPlot():
 
             i = 0
             while os.path.exists(os.path.join(__location__, '{}{}{}'.format(
-                self._save_filename, i, '.txt'))):
+                self.save_filename, i, '.txt'))):
                 i += 1
 
-            filename = self._save_filename + str(i) + '.txt'
+            filename = self.save_filename + str(i) + '.txt'
             #filename = filename_in
 
             fl = open(os.path.join(__location__, filename), 'w');
 
-            for xy in self._recorded_path:
+            for xy in self.recorded_path:
                 fl.write('{},{},{},{}\n'.format(xy[0], xy[1], xy[2], xy[3]))
 
             fl.close()
@@ -452,15 +449,15 @@ class TruckPlot():
 
     def _real_to_pixel(self, xreal, yreal):
         """Transform from real to pixel coordinates. """
-        xpixel = int(self._win_width/self._width * xreal + self._win_width/2)
-        ypixel = int(-self._win_height/self._height * yreal + self._win_height/2)
+        xpixel = int(self.win_width/self.width * xreal + self.win_width/2)
+        ypixel = int(-self.win_height/self.height * yreal + self.win_height/2)
         return xpixel, ypixel
 
 
     def _pixel_to_real(self, xp, yp):
         """Transform from pixel to real coordinates. """
-        xreal = float((xp - self._win_width/2) * self._width/self._win_width)
-        yreal = float((self._win_height/2 - yp) * self._height/self._win_height)
+        xreal = float((xp - self.win_width/2) * self.width/self.win_width)
+        yreal = float((self.win_height/2 - yp) * self.height/self.win_height)
         return xreal, yreal
 
 
@@ -477,8 +474,15 @@ class TruckPlot():
 
     def _clear_trajectories(self):
         """Clear the saved truck trajectories. """
-        self._saved_trajectory = []
-        self._canv.delete('traj')
+        self.saved_trajectory = []
+        self.canv.delete('traj')
+
+
+    def _draw_path(self):
+        """Draws the reference path. """
+        if self.display_path:
+            self._plot_sequence(self.pt.path, join = True, tag = 'path',
+                clr = 'blue', width = 2)
 
 
     def load_path(self, filename):
@@ -509,15 +513,9 @@ class TruckPlot():
         self.yc_var.set(self.yc)
 
         self.pt.gen_circle_path([self.xr, self.yr], points, [self.xc, self.yc])
-        self._canv.delete('path')
+        self.canv.delete('path')
         self._draw_path()
 
-
-    def _draw_path(self):
-        """Draws the reference path. """
-        if self._display_path:
-            self._plot_sequence(self.pt.path, join = True, tag = 'path',
-                clr = 'blue', width = 2)
 
 
 def main():
@@ -536,8 +534,7 @@ def main():
     root = tk.Tk()
     try:
         truckplot = TruckPlot(root, node_name, topic_type, topic_name,
-            filename = filename, width = width, height = height,
-            display_tail = display_tail)
+            filename = filename, width = width, height = height)
 
         truckplot.gen_circle_path([x_radius, y_radius], pts, center = center)
 

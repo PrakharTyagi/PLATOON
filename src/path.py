@@ -62,7 +62,7 @@ class Path:
             pass
 
 
-    def gen_circle_path(self, radius, points, center = [0, 0]):
+    def gen_circle_path(self, radius, points = 300, center = [0, 0]):
         """Generates a circle path with specified radius and number of
         points."""
         newpath = []
@@ -450,8 +450,39 @@ class Path:
                         (x2 - x1)**2 + (y2 - y1)**2))
 
 
+    def get_distance(self, xy1, xy2):
+        """Returns the distance between the two points xy1 and xy2. xy1 is
+        considered to be in front of xy2. The distance is calculated from
+        xy1's projection on the path back along the path to xy2. """
+        index1, _ = self.get_closest(xy1)
+        index2, _ = self.get_closest(xy2)
+
+        return self.get_distance_from_indices(index1, index2)
+
+
+    def get_distance_from_indices(self, i1, i2):
+        """Returns the distance along the path between the two indices. The
+        distance is calculate from i1 back along the path to i2. """
+        dist_sum = 0
+
+        i = i1
+        i_lower = i2 if i2 < i1 else i2 - len(self.path)
+        print('i {}, il{}'.format(i, i_lower))
+
+        while i >= i_lower:
+            xy_l = self.get_xy(i - 1)
+            xy_u = self.get_xy(i)
+            dist_sum += math.sqrt(
+                (xy_u[0] - xy_l[0])**2 + (xy_u[1] - xy_l[1])**2)
+
+            i -= 1
+
+        return dist_sum
+
 
 if __name__ == '__main__':
     pt = Path()
-    pt.gen_circle_path([1.6, 1.2], 300, [0.3, -0.5])
-    pt.plot()
+    pt.gen_circle_path([1, 1], 300, [0, 0])
+
+    dist1 = pt.get_distance([1, 0], [1, -0.1])
+    print(dist1)
