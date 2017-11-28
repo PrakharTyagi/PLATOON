@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>modeltruck_platooning</name>
+  <name>platoon</name>
   <version>0.0.0</version>
-  <description>The modeltruck_platooning package</description>
+  <description>The super great platooning package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->

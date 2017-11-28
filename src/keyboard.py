@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from modeltruck_platooning.msg import drive_param
+from platoon.msg import drive_param
 import curses
 #import signal
 #TIMEOUT = 0.1 # number of seconds your want for timeout

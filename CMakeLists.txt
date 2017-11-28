@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(modeltruck_platooning)
+project(platoon)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   rospy
   std_msgs
+  roscpp
 )
 
 ## System dependencies are found with CMake's conventions
@@ -50,14 +51,15 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   drive_param.msg
+  truckmocap.msg
 )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  TestPlot.srv
+  state.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -105,6 +107,7 @@ catkin_package(
   INCLUDE_DIRS
   LIBRARIES keyboard_control
   CATKIN_DEPENDS message_generation rospy std_msgs
+  CATKIN_DEPENDS message_runtime rospy std_msgs
   DEPENDS system_lib
 )
 
