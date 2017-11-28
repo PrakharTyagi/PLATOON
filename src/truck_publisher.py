@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from modeltruck_platooning.msg import *
+from platoon.msg import *
 import time
 import math
 from mocap_source_2 import *
@@ -114,7 +114,7 @@ class TruckPublisher():
 
 
 def main():
-    mocap_used = True      # True if using Mocap, False if using simulation.
+    mocap_used = False      # True if using Mocap, False if using simulation.
     freq = 20               # Publishing frequency in Hz.
     # Publisher info
     topic_name = 'truck2'

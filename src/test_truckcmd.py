@@ -5,7 +5,6 @@
 # truck when values are entered. Run with arg 1 or 2 depending on truck.
 
 import rospy
-from modeltruck_platooning.msg import drive_param
 
 from socket import *
 import struct

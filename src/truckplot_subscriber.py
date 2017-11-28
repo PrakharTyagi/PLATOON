@@ -6,7 +6,7 @@
 # Handle plotting of multiple trucks.
 # Support fixed displayed tail length.
 
-from modeltruck_platooning.msg import *
+from platoon.msg import *
 import rospy
 import time
 import Tkinter as tk

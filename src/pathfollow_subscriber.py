@@ -3,7 +3,7 @@
 import rospy
 import path
 import translator
-from modeltruck_platooning.msg import *
+from platoon.msg import *
 import math
 import struct
 import sys

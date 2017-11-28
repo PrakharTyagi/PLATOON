@@ -3,7 +3,7 @@
 import rospy
 #from f1tenth_task1.msg import drive_values
 #from f1tenth_task1.msg import drive_param
-from modeltruck_platooning.msg import drive_param
+from platoon.msg import drive_param
 
 
 from socket import *
