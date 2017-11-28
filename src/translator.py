@@ -146,7 +146,7 @@ class Translator:
 
     def get_angle(self, w, v):
         self.turn(w, v)
-        return self.angle
+        return self.microSec
 
     def getSpeed(self):
         return self.speedMicro
