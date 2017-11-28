@@ -11,7 +11,7 @@ class CircleTruck():
     def __init__(self):
         self.radius = 1.3
         self.theta0 = 0     # Initial angle.
-        self.velocity = 1
+        self.velocity = 2
 
         self.theta = self.theta0
         self.x = self.radius*math.cos(self.theta)
@@ -35,7 +35,7 @@ class Truck:
     """Class for getting data from Mocap. """
     def __init__(self):
         self.mocap = Mocap(host = '192.168.1.10', info = 1)
-        self.mocap_body2 = self.mocap.get_id_from_name('truckVehicle2')
+        self.mocap_body2 = self.mocap.get_id_from_name('TruckVehicle2')
 
     def get_values(self):
         """Returns the truck state. """
@@ -58,6 +58,10 @@ class TruckPublisher():
         self.queue_size = queue_size
         self.update_freq = update_freq
         self.mocap_used = mocap_used
+        #self.vtot=0
+        self.time_bw=[0]
+        self.xlist=[0]
+        self.ylist=[0]
 
         self.pub = rospy.Publisher(self.topic_name, self.topic_type,
             queue_size = self.queue_size)
@@ -79,20 +83,34 @@ class TruckPublisher():
         while not rospy.is_shutdown():
             time_new = time.time()
             self.time_elapsed = time_new - self.init_time
+            self.time_bw.append(rospy.get_time())
+            tid_mellan=(self.time_bw[-1]-self.time_bw[-2])
+            #print(tid_mellan)
             try:
+
                 if self.mocap_used:
                     x, y, yaw = self.tr.get_values()
-                    self.pub.publish(x, y, yaw, self.time_elapsed)
-                    self.rate.sleep()
                 else:
                     self.tr.update_pos(self.time_elapsed)
                     x, y, yaw = self.tr.get_values()
-                    self.pub.publish(x, y, yaw, self.time_elapsed)
-                    self.rate.sleep()
-            except:
-                print('No mocap data, time: {:.1f}\n'.format(
-                    self.time_elapsed))
 
+                self.xlist.append(x)
+                self.ylist.append(y)
+                self.velocity(tid_mellan)
+                self.pub.publish(x, y, yaw, self.time_elapsed,self.v_tot)
+                #print("Speed %s " % self.v_tot)
+                self.rate.sleep()
+            except:
+                pass
+
+
+    def velocity(self,tid_mellan):
+        v_x=(self.xlist[-1]-self.xlist[-2])/tid_mellan
+        v_y=(self.ylist[-1]-self.ylist[-2])/tid_mellan
+
+        self.v_tot=math.sqrt(v_x**2+v_y**2)
+
+        return self.v_tot
 
 
 def main():
