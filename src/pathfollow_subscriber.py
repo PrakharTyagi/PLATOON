@@ -3,7 +3,6 @@
 import rospy
 import path
 import translator
-import translator2
 from modeltruck_platooning.msg import *
 import math
 import struct
@@ -41,7 +40,6 @@ class Controller():
 
         self.pt = path.Path()
         self.translator = translator.Translator(0, self.V)
-        self.translator2 = translator2.Translator(0, self.V)
 
         self.seqNum = 0
         self.packer = struct.Struct('<IIHhhh')
@@ -54,13 +52,11 @@ class Controller():
     def callback(self, data):
         """Called when the subscriber receives data. """
         omega = self.get_omega(data)
-        self.translator.translateInput(omega)
-        self.translator2.turn(omega, self.V)
-        angle = int(self.translator.getMicroSec())
-        angle2 = int(self.translator2.microSec)
-        print('{}, {:.4f}'.format(int(self.translator2.microSec), omega))
+        self.translator.turn(omega, self.V)
+        angle = int(self.translator.microSec)
+        print('{}, {:.4f}'.format(angle, omega))
 
-        self.send_data(self.address, self.const_vel, angle2, self.gr0)
+        self.send_data(self.address, self.const_vel, angle, self.gr0)
 
 
     def send_data(self, address, velocity, angle, gear, firstPack = False):
