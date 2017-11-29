@@ -11,12 +11,12 @@ class CircleTruck():
     def __init__(self):
         self.radius = 1.3
         self.theta0 = 0     # Initial angle.
-        self.velocity = 2
+        self.velocity = 1
 
-        self.theta = self.theta0
+        self.theta = self.theta0            # Angle for position on circle.
         self.x = self.radius*math.cos(self.theta)
         self.y = self.radius*math.sin(self.theta)
-        self.yaw = self.theta + math.pi/2
+        self.yaw = self.theta + math.pi/2   # Angle of truck.
 
     def update_pos(self, time_elapsed):
         """Update the position of the simulated truck. """
@@ -49,16 +49,16 @@ class Truck:
 
 class TruckPublisher():
     """Publisher class. Keeps an instance of the mocap or simulation object. """
-    def __init__(self, topic_name = 'truck2', topic_type = truckmocap,
-                node_name = 'truck_pub', update_freq = 20, mocap_used = True,
-                queue_size = 10):
-        self.topic_name = topic_name
-        self.topic_type = topic_type
+    def __init__(self, node_name, topic_type, topic_name,
+                 update_freq = 20, mocap_used = True,
+                 queue_size = 1):
         self.node_name = node_name
-        self.queue_size = queue_size
+        self.topic_type = topic_type
+        self.topic_name = topic_name
         self.update_freq = update_freq
         self.mocap_used = mocap_used
-        #self.vtot=0
+        self.queue_size = queue_size
+
         self.time_bw=[0]
         self.xlist=[0]
         self.ylist=[0]
@@ -78,30 +78,33 @@ class TruckPublisher():
 
         print('Publisher running')
 
+
     def talker(self):
         """Publishes the mocap or simulated data continuously to the topic. """
         while not rospy.is_shutdown():
-            time_new = time.time()
-            self.time_elapsed = time_new - self.init_time
+            self.time_elapsed = time.time() - self.init_time
+
             self.time_bw.append(rospy.get_time())
             tid_mellan=(self.time_bw[-1]-self.time_bw[-2])
-            #print(tid_mellan)
-            try:
 
-                if self.mocap_used:
-                    x, y, yaw = self.tr.get_values()
-                else:
+            try:
+                # If using simulation, update the position of the truck.
+                if not self.mocap_used:
                     self.tr.update_pos(self.time_elapsed)
-                    x, y, yaw = self.tr.get_values()
+
+                x, y, yaw = self.tr.get_values() # Get position.
 
                 self.xlist.append(x)
                 self.ylist.append(y)
                 self.velocity(tid_mellan)
-                self.pub.publish(x, y, yaw, self.time_elapsed,self.v_tot)
-                #print("Speed %s " % self.v_tot)
+
+                # Publish data to the topic and sleep.
+                self.pub.publish(x, y, yaw, self.time_elapsed, self.v_tot)
                 self.rate.sleep()
-            except:
-                pass
+
+            except Exception as e:
+                print('No mocap data. Publisher time: {:.1f}'.format(
+                    self.time_elapsed))
 
 
     def velocity(self,tid_mellan):
@@ -114,17 +117,17 @@ class TruckPublisher():
 
 
 def main():
-    mocap_used = False      # True if using Mocap, False if using simulation.
+    mocap_used = True      # True if using Mocap, False if using simulation.
     freq = 20               # Publishing frequency in Hz.
-    # Publisher info
+
+    # Publisher node info.
     topic_name = 'truck2'
     topic_type = truckmocap
     node_name = 'truck_pub'
-    queue_size = 1
 
-    publ = TruckPublisher(mocap_used = mocap_used, topic_name = topic_name,
-        topic_type = topic_type, node_name = node_name, update_freq = freq,
-        queue_size = queue_size)
+    # Create and run the publisher.
+    publ = TruckPublisher(node_name = node_name, topic_type = topic_type,
+        topic_name = topic_name, mocap_used = mocap_used, update_freq = freq)
     publ.talker()
 
 if __name__ == '__main__':
