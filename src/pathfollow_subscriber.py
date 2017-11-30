@@ -52,8 +52,7 @@ class Controller():
     def callback(self, data):
         """Called when the subscriber receives data. """
         omega = self.get_omega(data)
-        self.translator.turn(omega, self.V)
-        angle = int(self.translator.microSec)
+        angle = int(self.translator.get_angle(omega, self.V))
         print('{}, {:.4f}'.format(angle, omega))
 
         self.send_data(self.address, self.const_vel, angle, self.gr0)
