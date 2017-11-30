@@ -91,7 +91,7 @@ def main():
     tr.set_values(ax, 0.1, 1*math.pi/2)
 
     l = 0.2
-    translator = Translator(0, V)
+    translator = Translator()
 
     seqNum = 0
     firstPack = True
@@ -128,8 +128,7 @@ def main():
             omega, sumy = get_omega(pt,tr, V, tid, sumy)
 
             if omega < 2*V/l:
-                translator.translateInput(omega)
-                ang = translator.getMicroSec()
+                ang = int(self.translator.get_angle(omega, V))
 
             t = time.time()
             ms = int(t)
