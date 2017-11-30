@@ -213,6 +213,37 @@ class Translator:
         return 60
 
 
+    def turn_linear(self, w, v):
+        """Old angle translator that translates linearly between +-pi/6. """
+        l = 0.25
+        x = l/2
+        if w != 0:
+            r = v/w
+            if r**2 - x**2 > 0:
+                den = math.sqrt(r**2-x**2)
+                a = math.atan(l/den)
+            else:
+                a = math.pi/6
+        else:
+            a = 0
+        microSec = 1500
+
+        if(w < 0):
+            a= a*(-1)
+
+        if(a> math.pi/6):
+            microSec = 1800
+            a = math.pi/6
+
+        elif((a < -math.pi/6)):
+            microSec = 1200
+            a = -math.pi/6
+        else:
+            microSec = 1500 + 300*6/math.pi*a
+
+        self.angle_pwm = microSec
+
+
 
 # Old/original turning radius dicts.
 # self.rdict = {0.7172:1200, 0.7849:1250, 0.8633:1300,1.1609:1350,1.3933:1400,0: 1200, 99999:1500}
