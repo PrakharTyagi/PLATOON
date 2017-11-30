@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 
-# Class for describing a path.
+# Class for describing a path, and class for defining a new path.
 
-import rospy
-from Tkinter import *
+import Tkinter as tk
 import os
 import math
-
 
 class Path:
     """Class for a path. Path is described by a series of coordinate pairs."""
@@ -120,30 +118,30 @@ class Path:
         self._lp = True  # Plot while true
         realh = float(realh)
         realw = float(realw)
-        root = Tk()
+        root = tk.Tk()
         h = 600         # Tkinter canvas height.
         w = int(h*realw/realh)
 
-        s_frame = Frame(root, background = 'aquamarine')
+        s_frame = tk.Frame(root, background = 'aquamarine')
         s_frame.pack()
 
-        canv_frame = Frame(root)
-        canv_frame.pack(in_ = s_frame, side=LEFT)
+        canv_frame = tk.Frame(root)
+        canv_frame.pack(in_ = s_frame, side = tk.LEFT)
 
         # Canvas for drawing the path in.
-        canv = Canvas(root, width = w, height = h, background='#FFFFFF',
-                    borderwidth = 0, relief = RAISED)
+        canv = tk.Canvas(root, width = w, height = h, background='#FFFFFF',
+                    borderwidth = 0, relief = tk.RAISED)
         canv.pack(in_ = canv_frame)
         lst = [h, w, realh, realw]
         canv.bind('<Button-1>',
                     lambda event, arg = lst: self._print_click_info(event, arg))
 
         # Frame containing quit button.
-        right_frame = Frame(root, background = 'aquamarine')
-        right_frame.pack(in_ = s_frame, side = RIGHT, anchor = N)
+        right_frame = tk.Frame(root, background = 'aquamarine')
+        right_frame.pack(in_ = s_frame, side = tk.RIGHT, anchor = tk.N)
 
         # Quit button for closing the GUI.
-        quit_button = Button(root, text = 'Close', command = self._quitm,
+        quit_button = tk.Button(root, text = 'Close', command = self._quitm,
                             width = 10, background = 'coral',
                             activebackground = 'red')
         quit_button.pack(in_ = right_frame)
@@ -480,9 +478,144 @@ class Path:
         return dist_sum
 
 
-if __name__ == '__main__':
-    pt = Path()
-    pt.gen_circle_path([1, 1], 300, [0, 0])
 
-    dist1 = pt.get_distance([1, 0], [1, -0.1])
-    print(dist1)
+
+class NewPath:
+    """Class for defining a custom path. """
+    def __init__(self, filename, width = 6, height = 6):
+        self.filename = filename
+
+        self.root = tk.Tk()
+
+        self.newpath = []
+        self.graphicpath = []
+        self.height = float(height)      # Height of area in meters.
+        self.width = float(width)
+        self.win_height = 800   # Graphical window height
+        self.win_width = int(self.win_height*self.width/self.height)
+
+        s_frame = tk.Frame(self.root, background = 'aquamarine')
+        s_frame.pack()
+
+        canv_frame = tk.Frame(self.root)
+        canv_frame.pack(in_ = s_frame, side = tk.LEFT)
+
+        self.canv = tk.Canvas(self.root, width = self.win_width,
+                    height = self.win_height, background='#FFFFFF',
+                    borderwidth = 0, relief = tk.RAISED)
+        self.canv.pack(in_ = canv_frame)
+        #self.canv.configure(scrollregion = (-self.win_size/2, -self.win_size/2,
+        #                                    self.win_size/2, self.win_size/2))
+        self.canv.bind('<Button-1>', self.append_new_path)
+
+        right_frame = tk.Frame(self.root, background = 'aquamarine')
+        right_frame.pack(in_ = s_frame, side = tk.RIGHT, anchor = tk.N)
+
+        quit_button = tk.Button(self.root, text = 'Quit and \nsave path',
+                            command = self.quit_save,
+                            width = 10, height = 2, background = 'green3',
+                            activebackground = 'green4')
+        quit_button.pack(in_ = right_frame)
+
+        quit_button2 = tk.Button(self.root, text = 'Quit without \nsaving path',
+                            command = self.quit_no_save,
+                            width = 10, height = 2, background = 'red3',
+                            activebackground = 'red4')
+        quit_button2.pack(in_ = right_frame)
+
+        self.canv.create_line(int(self.win_width/2), int(self.win_height/2),
+                            int(self.win_width/2),
+                            int(self.win_height/2) - 50, width = 2,
+                            arrow = 'last')
+        self.canv.create_line(int(self.win_width/2), int(self.win_height/2),
+                            int(self.win_width/2) + 50,
+                            int(self.win_height/2), width = 2,
+                            arrow = 'last')
+
+        self.canv.create_text(2, 2,
+                            text = '({}, {})'.format(
+                            -self.width/2, self.height/2),
+                            anchor = 'nw')
+        self.canv.create_text(2, self.win_height - 2,
+                            text = '({}, {})'.format(-self.width/2,
+                            -self.height/2),
+                            anchor = 'sw')
+        self.canv.create_text(self.win_width - 2, self.win_height - 2,
+                            text = '({}, {})'.format(self.width/2,
+                            -self.height/2),
+                            anchor = 'se')
+        self.canv.create_text(self.win_width - 2, 2,
+                            text = '({}, {})'.format(self.width/2,
+                            self.height/2),
+                            anchor = 'ne')
+
+        self.root.title('Record path')
+        self.root.mainloop()
+
+
+    def quit_save(self):
+        """Save and quit the application. """
+        self.save(self.filename)
+        self.root.quit()
+
+
+    def quit_no_save(self):
+        """Quit without saving. """
+        self.root.quit()
+
+
+    def save(self, filename):
+        """Saves path to file. Writes each line on the format x,y"""
+        try:
+            __location__ = os.path.realpath(os.path.join(os.getcwd(),
+                                            os.path.dirname(__file__)))
+            fl = open(os.path.join(__location__, self.filename), 'w');
+
+            for xy in self.newpath:
+                fl.write('{},{}\n'.format(xy[0], xy[1]))
+
+            fl.close()
+            print('Saved path as {}'.format(self.filename))
+
+        except Exception as e:
+            print('\nError when saving path to file: '),
+            print(e)
+
+
+    def append_new_path(self, event):
+        """Appends the coordinates of a mouse click to the path. """
+        if (0 <= event.x <= self.win_width) and (
+            0 <= event.y <= self.win_height):
+
+            xy = self.transform([event.x, event.y])
+
+            print('{:07.4f}, {:07.4f}'.format(xy[0], xy[1]))
+
+            self.draw(event.x, event.y)
+            self.newpath.append(xy)
+            self.graphicpath.append([event.x, event.y])
+
+
+    def draw(self, x, y):
+        """Draws a line from the previous point to the most recent. Mark with
+        circle. """
+        try:
+            self.canv.create_line(self.graphicpath[-1][0],
+                                self.graphicpath[-1][1],
+                                    x, y, fill = 'blue', width = 2)
+        except:
+            pass
+        self.canv.create_oval(x - 3, y - 3, x + 3, y + 3, fill = 'green')
+
+
+    def transform(self, xy):
+        """Transform pixel coordinates to real coordinates. """
+        x = float((xy[0] - self.win_width/2) * self.width/self.win_width)
+        y = float((self.win_height/2 - xy[1]) * self.height/self.win_height)
+        return [x, y]
+
+
+    def printp(self):
+        """Prints the path in the terminal."""
+        for xy in self.newpath:
+            print('{:07.4f}, {:07.4f}'.format(xy[0], xy[1]))
