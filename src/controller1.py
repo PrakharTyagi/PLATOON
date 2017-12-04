@@ -57,11 +57,11 @@ class Controller():
 
     def _callback(self, data):
         """Called when the subscriber receives data. """
-        x = data.x
-        y = data.y
-        yaw = data.yaw
+        x = data.x2
+        y = data.y2
+        yaw = data.yaw2
         timestamp = data.timestamp
-        vel = data.velocity
+        vel = data.velocity2
 
         self._control(x, y, yaw, vel)
 

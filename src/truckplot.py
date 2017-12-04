@@ -25,7 +25,7 @@ class TruckPlot():
         self.height = float(height)
         self.win_height = win_size      # Graphical window height.
         self.win_width = int(self.win_height*self.width/self.height)
-        self.save_filename = filename
+        self.filename_prefix = filename
         self.display_tail = display_tail
         self.display_path = display_path
         self.node_name = node_name      # Subscriber node name.
@@ -33,11 +33,13 @@ class TruckPlot():
         self.topic_type = topic_type    # Subscriber topic type.
 
         self.pt = path.Path()       # A fixed path to draw.
-        self.saved_trajectory = []    # Recorded path of a truck for plotting.
-        self.recorded_path = []        # Recorded path for saving to file.
         self.recording = False
         self.timestamp = 0
-        self._rec_start_time = 0
+        self.rec_start_time = 0
+
+        self.new_data = {}
+        self.old_data = {}
+        self.callback_nr = 0
 
         self.xr = 0
         self.yr = 0
@@ -68,7 +70,17 @@ class TruckPlot():
         self.canv.pack(in_ = canv_frame)
         self.canv.bind('<Button-1>', self._left_click)
 
-        self.tr2 = self.canv.create_polygon(0, 0, 0, 0, 0, 0, fill = 'green')
+        # Create the truck polygons.
+        self.truck_colors = ['red', 'green', 'black']
+        tr1 = self.canv.create_polygon(0, 0, 0, 0, 0, 0,
+            fill = self.truck_colors[0])
+        tr2 = self.canv.create_polygon(0, 0, 0, 0, 0, 0,
+            fill = self.truck_colors[1])
+        tr3 = self.canv.create_polygon(0, 0, 0, 0, 0, 0,
+            fill = self.truck_colors[2])
+
+        self.trucks = [tr1, tr2, tr3]
+        self.truck_active = [True, True, False]
 
         # Create frame next to the canvas for buttons, labels etc.
         right_frame = tk.Frame(self.root, background = bg_color)
@@ -252,15 +264,41 @@ class TruckPlot():
     def _callback(self, data):
         """Called when subscriber receives data. Calls all methods to run at
         each update step. """
-        try:
-            self.saved_trajectory.append([data.x, data.y])
-            self._draw_canvas(data)
-            self.timestamp = data.timestamp
-            self.time_text_var.set(
-                'Server time: \n{:.1f}'.format(self.timestamp))
-            self._record_data(data)
-        except Exception as e:
-            print('Error in callback: {}'.format(e))
+        # Rearrange data from publisher into a format that the methods in
+        # the class uses: [[xy, y1, yaw1], [x2, y2, yaw2], [x3, y3, yaw3]]
+        truck_data = [
+            [data.x1, data.y1, data.yaw1],
+            [data.x2, data.y2, data.yaw2],
+            [0, 0, 0]]
+
+        if self.callback_nr == 0:
+            self.old_data = truck_data
+            self.new_data = truck_data
+        else:
+            self.old_data = self.new_data
+            self.new_data = truck_data
+
+            # Start repeated check for which trucks that are active.
+            if self.callback_nr == 1:
+                self._find_active_trucks()
+
+            try:
+                # Set time on time label.
+                self.timestamp = data.timestamp
+                self.time_text_var.set(
+                    'Server time: \n{:.1f}'.format(self.timestamp))
+
+                # Write data to file (if recording).
+                self._record_data()
+
+                # Draw trucks and their trajectories.
+                self._move_trucks()
+                self._draw_trajectories()
+
+            except Exception as e:
+                print('Error in callback: {}'.format(e))
+
+        self.callback_nr += 1
 
 
     def _draw_cf(self):
@@ -299,19 +337,45 @@ class TruckPlot():
             anchor = 'ne', tag = cftag)
 
 
-    def _draw_canvas(self, resp):
-        """Draws things that should be on the canvas. Coordinate frame, corner
-        coordinate texts, path, truck trajectory, truck position. """
-        if self.display_tail:
-            self._plot_sequence(
-                self._tailn(self.saved_trajectory, 2), join = False,
-                clr = 'green', tag = 'traj')
+    def _find_active_trucks(self):
+        """Returns which trucks are active. Calls itself repeatedly.
+        Checks if a truck is active by checking if the yaw value is not
+        identically zero. """
+        delay = 500
+        active = [False for i in self.truck_active]
 
-        self._move_truck(self.tr2, resp.x, resp.y, resp.yaw)
+        for i in range(len(active)):
+            try:
+                if self.new_data[i][2] != 0:
+                    active[i] = True
+            except:
+                pass
+
+        self.truck_active = active
+        print(active)
+
+        self.root.after(delay, self._find_active_trucks)
+
+
+    def _draw_trajectories(self):
+        """Draws truck trajectories. """
+        if self.display_tail:
+            state = tk.NORMAL
+        else:
+            state = tk.HIDDEN
+
+        # Draw the last movement of each active truck.
+        for i in range(len(self.trucks)):
+            if self.truck_active[i]:
+                self._plot_sequence(
+                    [[self.old_data[i][0], self.old_data[i][1]],
+                    [self.new_data[i][0], self.new_data[i][1]]],
+                    join = False, clr = self.truck_colors[i], tag = 'traj',
+                    state = state)
 
 
     def _plot_sequence(self, seq, join = False, clr = 'blue', width = 2,
-                        tag = 'line'):
+                        tag = 'line', state = tk.NORMAL):
         """Plots a sequence, a list on the form [[x0, y0], [x1, y1], ...],
         where x1 and y1 are real coordinates. Joins the beginning and end
         if join = True. """
@@ -321,25 +385,38 @@ class TruckPlot():
             else:
                 starti = 1
             try:
-                for i in range(starti,len(seq)):
+                for i in range(starti, len(seq)):
                     x1, y1 = self._real_to_pixel(seq[i - 1][0], seq[i - 1][1])
                     x2, y2 = self._real_to_pixel(seq[i][0], seq[i][1])
                     self.canv.create_line(x1, y1, x2, y2,
-                                        fill = clr, width = width, tag = tag)
+                                        fill = clr, width = width, tag = tag,
+                                        state = state)
             except Exception as e:
                 print('Error when plotting sequence: {}'.format(e))
 
 
-    def _move_truck(self, truck, xreal, yreal, yaw):
+    def _move_trucks(self):
+        """Moves the trucks. """
+        for i in range(len(self.trucks)):
+            try:
+                if self.truck_active[i]:
+                    self._move_truck(self.trucks[i], self.new_data[i])
+            except:
+                pass
+
+
+    def _move_truck(self, truck, xyyaw):
         """Moves a truck triangle to the new position. """
         l = self.truckl # Truck length in meters.
         w = self.truckw
+        xreal = xyyaw[0]
+        yreal = xyyaw[1]
+        yaw = xyyaw[2]
 
         # Coordinates for frontal corner.
         xf, yf = self._real_to_pixel(
             xreal + l/2*math.cos(yaw),
             yreal + l/2*math.sin(yaw))
-
         # Coordinates for rear right corner.
         xr, yr = self._real_to_pixel(
             xreal - l/2*math.cos(yaw) + w/2*math.cos(yaw - math.pi/2),
@@ -355,22 +432,19 @@ class TruckPlot():
 
 
     def _traj_btn_callback(self):
-        """Callback for trajectory check button. Enable/disaple plottinf of
+        """Callback for trajectory check button. Enable/disaple plotting of
         trajectories. """
         if self.traj_button_var.get() == 1:
             self.display_tail = True
-            self._plot_sequence(self.saved_trajectory, clr = 'green',
-                tag = 'traj')
-            self.clear_button.config(state = 'normal')
+            self._show_canvas_tag('traj')
         else:
             self.display_tail = False
-            self.canv.delete('traj')
-            #self.clear_button.config(state = 'disabled')
+            self._hide_canvas_tag('traj')
 
 
     def _path_btn_callback(self):
-        """Callback for trajectory check button. Enable/disaple plottinf of
-        trajectories. """
+        """Callback for path check button. Enable/disaple plotting of
+        reference path. """
         if self.path_button_var.get() == 1:
             self.display_path = True
             self._plot_sequence(self.pt.path, join = True, tag = 'path',
@@ -381,70 +455,97 @@ class TruckPlot():
             self.canv.delete('path')
 
 
-    def _record_data(self, response):
-        """Appends data to the list recording the trajectory."""
+    def _record_data(self):
+        """Writes data to file if recording is on. Sets recording label. """
         if self.recording:
-            self.recorded_path.append([response.x, response.y, response.yaw,
-                                    self.timestamp])
+            # Gather data to be written into a list.
+            values = []
+            for truck in self.new_data:
+                for value in truck:
+                    values.append(value)
+
+            values.append(self.timestamp)
+
+            self._write_data(values) # Write list to file.
+
+            # Set the label displaying the recording time.
             self.rec_time_text_var.set(
                 'Recording: \n{:.1f}'.format(
-                    time.time() - self._rec_start_time))
+                    time.time() - self.rec_start_time))
 
 
     def _start_record(self):
-        """Starts a new recording of trajectories."""
+        """Starts a new recording of trajectories. Saves files to a file named
+        'self.filename_prefix + i + .txt', where i is the first available
+        index for which such a file not already exists. """
         if self.recording:
             print('Already recording.')
-        else:
-            self._clear_trajectories()
-            self.recorded_path = []
-            self.recording = True
-            self.start_record_button.config(state = 'disabled')
-            self.stop_record_button.config(state = 'normal')
-            self._rec_start_time = time.time()
-            self.rec_time_label.config(foreground = 'black')
-            print('Recording started.')
+            return
 
+        self._clear_trajectories()
+        self.recording = True
+        self.start_record_button.config(state = 'disabled')
+        self.stop_record_button.config(state = 'normal')
+        self.rec_start_time = time.time()
+        self.rec_time_label.config(foreground = 'black')
 
-    def _stop_record(self):
-        """Stops current recording of trajectories."""
-        if not self.recording:
-            print('No recording is running.')
-        else:
-            self.recording = False
-            self.start_record_button.config(state = 'normal')
-            self.stop_record_button.config(state = 'disabled')
-            self.rec_time_text_var.set('Not recording\n')
-            self.rec_time_label.config(foreground = 'grey')
-            print('Recording stopped.')
-            self._save_recorded()
-
-
-    def _save_recorded(self):
-        """Saves recorded path to file. Writes each line on the format
-        x,y,yaw,servertime"""
         try:
             __location__ = os.path.realpath(os.path.join(os.getcwd(),
                                             os.path.dirname(__file__)))
 
             i = 0
             while os.path.exists(os.path.join(__location__, '{}{}{}'.format(
-                self.save_filename, i, '.txt'))):
+                self.filename_prefix, i, '.txt'))):
                 i += 1
 
-            filename = self.save_filename + str(i) + '.txt'
-            #filename = filename_in
+            self.filename = self.filename_prefix + str(i) + '.txt'
 
-            fl = open(os.path.join(__location__, filename), 'w');
-
-            for xy in self.recorded_path:
-                fl.write('{},{},{},{}\n'.format(xy[0], xy[1], xy[2], xy[3]))
-
-            fl.close()
-            print('Saved as {}'.format(filename))
+            self.record_file = open(
+                os.path.join(__location__, self.filename), 'w');
 
         except Exception as e:
-            print('\nError when saving to file: {}'.format(e))
+            print('\nError when opening file for writing: {}'.format(e))
+            return
+
+        print('Recording started.')
+
+
+    def _stop_record(self):
+        """Stops current recording of trajectories. """
+        if not self.recording:
+            print('No recording is running.')
+            return
+
+        self.recording = False
+        self.start_record_button.config(state = 'normal')
+        self.stop_record_button.config(state = 'disabled')
+        self.rec_time_text_var.set('Not recording\n')
+        self.rec_time_label.config(foreground = 'grey')
+
+        try:
+            self.record_file.close()
+            print('Saved as {}'.format(self.filename))
+
+        except Exception as e:
+            print('\nError when closing file: {}'.format(e))
+
+        print('Recording stopped.')
+
+
+    def _write_data(self, values):
+        """Writes values to file. values is a list. """
+        if self.recording:
+            try:
+                for i, x in enumerate(values):
+                    if i == 0:
+                        self.record_file.write('{}'.format(x))
+                    else:
+                        self.record_file.write(',{}'.format(x))
+
+                self.record_file.write('\n')
+
+            except Exception as e:
+                print('\nError when writing to file: {}'.format(e))
 
 
     def _real_to_pixel(self, xreal, yreal):
@@ -472,9 +573,22 @@ class TruckPlot():
             return seq[l - n:l]
 
 
+    def _hide_canvas_tag(self, tag):
+        """Hide all canvas items with the specified tag. """
+        handles = self.canv.find_withtag(tag)
+        for x in handles:
+            self.canv.itemconfig(x, state = tk.HIDDEN)
+
+
+    def _show_canvas_tag(self, tag):
+        """Show all canvas items with the specified tag. """
+        handles = self.canv.find_withtag(tag)
+        for x in handles:
+            self.canv.itemconfig(x, state = tk.NORMAL)
+
+
     def _clear_trajectories(self):
         """Clear the saved truck trajectories. """
-        self.saved_trajectory = []
         self.canv.delete('traj')
 
 
@@ -528,7 +642,7 @@ def main():
     display_tail = True         # If truck trajectories should be displayed.
     filename = 'record'         # Recorded files are saved as filenameNUM.txt
     node_name = 'truckplot_sub' # Name of subscriber node.
-    topic_name = 'truck2'       # Name of topic it subscribes to.
+    topic_name = 'truck_topic'       # Name of topic it subscribes to.
     topic_type = truckmocap     # The type of the topic.
 
     root = tk.Tk()
