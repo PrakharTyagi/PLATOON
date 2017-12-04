@@ -10,6 +10,10 @@ import time
 import scipy.optimize as opt
 import numpy as np
 
+import osqp
+import scipy as sp
+import scipy.sparse as sparse
+
 
 class Controller():
     """Class for subscribing to topic mocap data, calculate control input and
@@ -52,8 +56,7 @@ class Controller():
 
 
     def _control(self, x, y, yaw, vel):
-        """Perform control actions from received data. Sends new values to
-        truck. """
+        self.mpc.solveMpc()
         self.sender.send_data(1500, 1500)
 
 
@@ -145,118 +148,138 @@ if __name__ == '__main__':
 class Mpc_controller:
 
     def __init__(self):
-        self.nz = 4  # Number of states
-        self.nu = 2  # Number of inputs
-        self.Qz =   np.array([
-                    [0, 0, 0, 0],
-                    [0, 1, 0, 0],
-                    [0, 0, 1, 0],
-                    [0, 0, 0, 0]
-                                ])  # Inital Qz matrix
-        self.Qu = np.array([
-                    [1, 0],
-                    [0, 1]
-                                ]) # Initial Qu matrix
-        #self.Qf = Qf  # Final Qf matrix
-        self.N = 5  # Control horizion
-        self.Ts = 1 / 20  # Samling time
-        #self.margin = margin  # margIIIn
-       # self.constraints = (  # Initial constraints struct
-       #     {
-        #        'type': 'eq',
-        #        'fun': self.equality_constraints
-         #   },
-         #   {
-         #       'type': 'ineq',
-         #       'fun': self.inequality_constraints
-          #  }
-        #)
-
-    def xTQx(self, x, Q):
-        '''Returns the value of x^TQx'''
-        return np.dot(np.dot(np.transpose(x), Q), x)
-
-    def get_control(self, x, i):
-        '''Gettter of the control vector at time instance i from the optimization
-           variable x.'''
-
-    def get_state(self, x, i):
-        '''Gettter of the state vector at time instance i from the optimization
-           variable x.'''
-
-    def set_state(self, x, z, i):
-        '''Setter for a state vector z at time instance i for the optimization
-           variable x.'''
+        self.u0 = 0.
+        self.x0 = np.zeros(2)
+        self.N = 10
+        self.h = 1/20  #sampleFreq
+        self.Ad, self.Bd, self.nx, self.nu = self.getDynamics()
+        self.Q, self.QN, self.R = self.getObjective()
+        self.Aineq, self.lineq, self.uineq = self.ineqConstraints(self.N, self.nu, self.nx)
+        #Updated every seq (because of x0.)
+        #Aineq, lineq, uineq = self.ineqConstraints(self.N,nu,nx,xmin,xmax,umin,umax) #Updated every..
+        # Create an OSQP object
+        self.prob = osqp.OSQP()
+        #self.setupWorkspace()
 
 
+    def linearizeInSequence(self,yaw):
+        self.Ad = sparse.csc_matrix([
+                [1., 0., 0.],
+                [0., 1., 0.],
+                [0., 0., 1.]
+            ])
+        self.Bd = sparse.csc_matrix([
+            [self.h*np.cos(yaw-np.pi/2),0],
+            [self.h*np.sin(yaw-np.pi/2),0],
+            [0,self.h]
+        ])
+        [self.nx, self.nu] = self.Bd.shape
 
-    def calc_control(self, z):
-        '''Calculate the MPC control given the current state z and the previous
-           wheel angle beta. Solves the optimization problem and returns the
-           first input step, the evaluated cost, the number of iterations performed
-           by the solved and the total solve time.'''
-        self.z0 = z
-        t_start = time.process_time()
-        init_guess = np.array([0,0,0,0])#self.calc_init_guess()
-
-        res = opt.minimize(self.cost_function,
-                           init_guess,
-                           method='SLSQP',
-                           constraints=self.constraints,
-                           bounds=self.bounds,
-                           options={
-                               'maxiter': 150,
-                               'disp': True,
-                               'ftol': 0.01
-                          })
-        t_solve = time.process_time() - t_start
-        #if partial_tracking:
-         #   self.print_partial_progress(res.x, init_guess)
-        #self._x_opt = res.x
-        u_opt = self.get_control(res.x, 0)
-        #self.beta0 = self.get_beta(u_opt)
-        return u_opt, res.fun, res.nit, t_solve
+    def generatePath(self,x,y,r):
+        theta = np.arctan2(float(y), float(x))
+        Larc = 0.3
+        newTheta = Larc/r
+        thetaR = theta+newTheta
+        xNew = r*np.cos(thetaR)
+        yNew = r*np.sin(thetaR)
+        return xNew, yNew,(thetaR+np.pi/2)
 
 
-    #def get_state(self, x, i):
-      #  '''Gettter of the state vector at time instance i from the optimization
-      #     variable x.'''
-        #if i == 0:
-        #    return self.z0
-        #start = self.nz*(i-1)
-        #return x[start: start + self.nz]
+    def solveMpc(self,x,y,r,yaw):
+        self.x0 =[x,y,yaw]
+        xr,yr,thetar = self.generatePath(x,y,r)
+        self.linearizeInSequence(yaw)
+        Aeq, leq, ueq = self.linearDynamics(self.Ad, self.Bd, self.nx, self.x0, self.N)
+        P, q = self.castMpc(self.nu, self.Q, self.QN, self.R, [xr, yr, thetar])  # into solver!
+        A,l,u = self.getOSPConstraints(Aeq,self.Aineq,leq,self.lineq,ueq,self.uineq)
 
-    def getPos(self, x, k):
-        '''Calculates the reference error \hat{r} - r_{ref}'''
-        pos = self.get_state(x, k)
-        if k == 0:
-            return self.z0
-        start = self.nz*(k-1)
-        return x[start: start + self.nz]
+        self.prob.setup(P, q, A, l, u, warm_start=True)
+            # Solve
+        res = self.prob.solve()
+            # Check solver status
+       # if res.info.status != 'Solved':
+       #    raise ValueError('OSQP did not solve the problem!')
+    # Apply first control input to the plant
+        return res.x[-self.N * self.nu:-(self.N - 1) * self.nu]
 
-    def cost_function(self, x):
-        J = 0
-        for k in range(self.N-1):
-            pos = self.getPos(x,k)
-            yPos = x(2)
-
-            #ref_cost = self.xTQx(ref_err, self.Qz)
-            #curr_u = self.get_control(x, k)
-            #u_cost = self.xTQx(curr_u, self.Qu)
-            #J = J + ref_cost + u_cost
-        #ref_err = self.get_ref_err(x, self.reference, k)
-        #term_cost = self.xTQx(ref_err, self.Qf)
-        #return J + term_cost
-
-   # def equality_constraints(self, x):
-
-    # return self.get_model_constraints(x)
-
-   # def inequality_constraints(self, x):
-    # return self.get_input_constraints(x)
+        #self.x0 = self.Ad.dot(self.x0) + self.Bd.dot(ctrl)
 
 
 
+    #def setupWorkspace(self):
+        #self.prob.setup(self.P, self.q, self.A, self.l, self.u, warm_start=True)
 
+
+
+    def linearDynamics(self,Ad,Bd,nx,x0,N):
+        print(nx)
+        Ax = sparse.kron(sparse.eye(self.N + 1), -sparse.eye(nx)) + sparse.kron(sparse.eye(N + 1, k=0), Ad)
+        Bu = sparse.kron(sparse.vstack([sparse.csc_matrix((1, N)), sparse.eye(N)]), Bd)
+        Aeq = sparse.hstack([Ax, Bu])
+        leq = np.hstack([x0, np.zeros(N * nx)])
+        ueq = leq
+        return Aeq, leq, ueq
+
+    def getOSPConstraints(self,Aeq,Aineq,leq,lineq,ueq,uineq):
+        A = sparse.vstack([Aeq, Aineq])
+        l = np.hstack([leq, lineq])
+        u = np.hstack([ueq, uineq])
+        return A,l,u
+
+
+    def ineqConstraints(self,N,nu,nx):
+        umin, umax, xmin, xmax = self.getMaxMin()
+        Aineq = sparse.eye((N + 1) * nx + N * nu)
+        lineq = np.hstack([np.kron(np.ones(N + 1), xmin), np.kron(np.ones(N), umin)])
+        uineq = np.hstack([np.kron(np.ones(N + 1), xmax), np.kron(np.ones(N), umax)])
+        return Aineq, lineq, uineq
+
+    def castMpc(self,nu,Q,QN,R,xr):
+
+        # Cast MPC problem to a QP: x = (x(0),x(1),...,x(N),u(0),...,u(N-1))
+        # - quadratic objective
+        #Q,QN,R = self.getObjective()
+        P = sparse.block_diag([sparse.kron(sparse.eye(self.N), Q), QN, sparse.kron(sparse.eye(self.N), R)])
+        # - linear objective
+        q = np.hstack([np.kron(np.ones(self.N), -Q.dot(xr)), -QN.dot(xr),
+                       np.zeros(self.N * nu)])
+        return P, q
+
+    def getRef(self):
+        xr = np.array([6., 6., 6.])
+        return xr
+
+    def getObjective(self):
+        Q = sparse.diags([0.1, 0.1, 0.1])
+        QN = Q
+        R = 0.1 * sparse.eye(1)
+        return Q,QN,R
+
+    def getDynamics(self):
+        Ad = sparse.csc_matrix([
+                [1., 0., 0.],
+                [0., 1., 0.],
+                [0., 0., 1.]
+            ])
+        Bd = sparse.csc_matrix([
+            [0, .0],
+            [self.h, .0],
+            [.0, self.h]
+        ])
+        [nx, nu] = Bd.shape
+        return Ad, Bd, nx, nu
+
+
+    def getMaxMin(self):
+        umin = np.array([-1.,-1.])
+        umax = np.array([1.,1.])
+        xmin = np.array([-5, -5, -1*np.pi])
+        xmax = np.array([5, 5, np.pi])
+        return umin, umax, xmin, xmax
+
+
+
+
+        # Setup workspace
 
 
