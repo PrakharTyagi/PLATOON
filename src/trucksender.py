@@ -62,8 +62,13 @@ class TruckSender():
         self.client_socket.sendto(command_msg, self.address)
 
 
-    def stop_truck(self):
+    def stop_truck(self, stop_angle_pwm = None):
         """Stops the truck by sending the initial values to it. """
-        self.send_data(self.init_velocity, self.init_angle, self.init_gearval)
-        self.send_data(self.init_velocity, self.init_angle, self.init_gearval)
-        self.send_data(self.init_velocity, self.init_angle, self.init_gearval)
+        if stop_angle_pwm is not None:
+            angle = stop_angle_pwm
+        else:
+            angle = self.init_angle
+
+        self.send_data(self.init_velocity, angle, self.init_gearval)
+        self.send_data(self.init_velocity, angle, self.init_gearval)
+        self.send_data(self.init_velocity, angle, self.init_gearval)
