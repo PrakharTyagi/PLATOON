@@ -24,7 +24,7 @@ class Controller():
         self.adjustables = []
         # Information for subscriber node.
 
-        self.mpc = Mpc_controller()
+        self.mpc = self.mpcDynaics()
         self.node_name = node_name
         self.topic_name = topic_name
         self.topic_type = topic_type
@@ -55,10 +55,38 @@ class Controller():
         self._control(x, y, yaw, vel)
 
 
-    def _control(self, x, y, yaw, vel):
-        self.mpc.solveMpc()
-        self.sender.send_data(1500, 1500)
+    def mpcDynaics(self):
+        Ad = sparse.csc_matrix([
+            [1., 0., 0.],
+            [0., 1., 0.],
+            [0., 0., 1]
+        ])
+        Bd = sparse.csc_matrix([
+            [0.5, .0],
+            [0.5, 0.],
+            [0., 0.5]
+        ])
 
+        Q = sparse.diags([0.1, 0.1, 0.1])
+        QN = Q
+        R = 0.1 * sparse.eye(2)
+        umin = np.array([0, 0])
+        umax = np.array([1, 1])
+        xmin = np.array([-10, -10, -10])
+        xmax = np.array([10, 10, 10])
+        x0 = np.zeros(3)
+
+        N = 3
+
+        xref = np.array([6, 6, 6])
+        mpc = Mpc_controller(Ad, Bd, Q, QN, R, N, x0, umin, umax, xmin, xmax, xref)
+        return mpc
+
+    def _control(self, x, y, yaw, vel):
+        self.mpc.updatex0([x,y,yaw])
+        ctrl = self.mpc.solveMpc()
+        return ctrl
+    
 
     def set_adjustables(self, values):
         """Used by the GUI to set the adjustable values. values is a list with
@@ -147,230 +175,81 @@ if __name__ == '__main__':
 
 class Mpc_controller:
 
-    def __init__(self):
-        #self.u0 = 0.
-        #self.x0 = np.zeros(2)
+    def __init__(self,Ad,Bd,Q,QN,R,N,x0,umin,umax,xmin,xmax,xr):
 
-        self.N = 10    #Init Control Horizon
-        self.h = 1/20  #Init Sample Frequency
-        self.Ad, self.Bd, self.nx, self.nu = self.getInitVehicleDynamics()
-        self.Q, self.QN, self.R = self.getInitObjective()
-        self.umin, self.umax, self.xmin, self.xmax = self.getInitMaxMin()
-        self.Aineq, self.lineq, self.uineq = self.ineqConstraints(self.N, self.nu, self.nx,self.umin, self.umax, self.xmin, self.xmax)
-        self.x0 = np.zeros(3)
-        #Updated every seq (because of x0.)
-        #Aineq, lineq, uineq = self.ineqConstraints(self.N,nu,nx,xmin,xmax,umin,umax) #Updated every..
-        # Create an OSQP object
-        self.prob = osqp.OSQP()
-        #self.setupWorkspace()
-
-    #Update dynamics by typing in new Ad and Bd
-    def updateDynamics(self,Ad,Bd):
         self.Ad = Ad
         self.Bd = Bd
-        [self.nx, self.nu] = self.Bd.shape
-    #Update Control horizon
-    def updateHorizon(self,N):
-        self.N = N
+        [self.nx, self.nu] = Bd.shape
 
-    def updateSampleFreq(self,h):
-        self.h = h
-
-    def updateCost(self,Q,QN,R):
-        self.Q = Q
+        self.Q  = Q
         self.QN = QN
-        self.R = R
-
-    def updateMaxMin(self,umin,umax,xmin,xmax):
+        self.R  = R
+        self.N = N
+        self.x0 = x0
         self.umin = umin
         self.umax = umax
         self.xmin = xmin
         self.xmax = xmax
-
-    #Linearize every sequence in order to get a proper control.
-    def linearizeInSequence(self,yaw):
-        self.Bd = sparse.csc_matrix([
-            [self.h*np.cos(yaw-np.pi/2),0],
-            [self.h*np.sin(yaw-np.pi/2),0],
-            [0,self.h]
-        ])
-        [self.nx, self.nu] = self.Bd.shape
+        self.xr = xr
+        self.prob = osqp.OSQP()
+        self.updateController()
 
 
-    #Generate a path on a circle based on this.
-    def generatePath(self,x,y,r):
-        theta = np.arctan2(float(y), float(x))
-        Larc = 0.3
-        newTheta = Larc/r
-        thetaR = theta+newTheta
-        xNew = r*np.cos(thetaR)
-        yNew = r*np.sin(thetaR)
-        return xNew, yNew,(thetaR+np.pi/2)
+    def updateDynamics(self,Ad,Bd):
+        self.Ad = Ad
+        self.Bd = Bd
+        [self.nx, self.nu] = Bd.shape
+        self.updateController()
 
+    def updateMaxMin(self,umin,umax,xmin,xmax):
+        self.umin = umin
+        self.umax = umax
+        self.xmin = xmax
+        self.xmax = xmax
+        self.updateController()
 
+    def updateRef(self,xr):
+        self.xr = xr
+        self.updateController()
+    def updateHorizon(self,N):
+        self.N = N
+        self.updateController()
+    def updatex0(self,x0):
+        self.x0 = x0
+        self.updateController()
+    def updateObjective(self,Q,QN,R):
+        self.Q  = Q
+        self.QN = QN
+        self.R  = R
+        self.updateController()
 
+    def updateController(self):
+        P = sparse.block_diag([sparse.kron(sparse.eye(self.N), self.Q), self.QN,
+                               sparse.kron(sparse.eye(self.N), self.R)])
+        # - linear objective
+        q = np.hstack([np.kron(np.ones(self.N), -self.Q.dot(self.xr)), -self.QN.dot(self.xr),
+                       np.zeros(self.N * self.nu)])
 
-    def solveSimpleMpc(self,x,y,yaw,xref):
-        self.x0 =[x,y,yaw]
-        xr = xref
-        yr = y
-        thetar = yaw
-        #self.linearizeInSequence(yaw)
-        Aeq, leq, ueq = self.linearDynamics(self.Ad, self.Bd, self.nx, self.x0, self.N)
-        P, q = self.castMpc(self.nu, self.Q, self.QN, self.R, [xr, yr, thetar])  # into solver!
-        A,l,u = self.getOSPConstraints(Aeq,self.Aineq,leq,self.lineq,ueq,self.uineq)
-
-        self.prob.setup(P, q, A, l, u, warm_start=True)
-            # Solve
-        res = self.prob.solve()
-            # Check solver status
-       # if res.info.status != 'Solved':
-       #    raise ValueError('OSQP did not solve the problem!')
-    # Apply first control input to the plant
-        return res.x[-self.N * self.nu:-(self.N - 1) * self.nu]
-
-
-
-
-
-    def solveMpc(self,x,y,r,yaw):
-        self.x0 =[x,y,yaw]
-        #xr,yr,thetar = self.generatePath(x,y,r)
-        self.linearizeInSequence(yaw)
-        Aeq, leq, ueq = self.linearDynamics(self.Ad, self.Bd, self.nx, self.x0, self.N)
-        P, q = self.castMpc(self.nu, self.Q, self.QN, self.R, [xr, yr, thetar])  # into solver!
-        A,l,u = self.getOSPConstraints(Aeq,self.Aineq,leq,self.lineq,ueq,self.uineq)
-
-        self.prob.setup(P, q, A, l, u, warm_start=True)
-            # Solve
-        res = self.prob.solve()
-            # Check solver status
-       # if res.info.status != 'Solved':
-       #    raise ValueError('OSQP did not solve the problem!')
-    # Apply first control input to the plant
-        return res.x[-self.N * self.nu:-(self.N - 1) * self.nu]
-
-        #self.x0 = self.Ad.dot(self.x0) + self.Bd.dot(ctrl)
-    #def setupWorkspace(self):
-        #self.prob.setup(self.P, self.q, self.A, self.l, self.u, warm_start=True)
-
-
-    def getNextState(self,ctrl):
-        u1 = ctrl[0]
-        u2 = ctrl[1]
-        z = self.Ad*self.x0 +self.Bd*[u1, u2]
-        return z
-
-
-    def linearDynamics(self,Ad,Bd,nx,x0,N):
-        #print(nx)
-        Ax = sparse.kron(sparse.eye(self.N + 1), -sparse.eye(nx)) + sparse.kron(sparse.eye(N + 1, k=0), Ad)
-        Bu = sparse.kron(sparse.vstack([sparse.csc_matrix((1, N)), sparse.eye(N)]), Bd)
+        Ax = sparse.kron(sparse.eye(self.N + 1), -sparse.eye(self.nx)) + sparse.kron(sparse.eye(self.N + 1, k=-1), self.Ad)
+        Bu = sparse.kron(sparse.vstack([sparse.csc_matrix((1, self.N)), sparse.eye(self.N)]), self.Bd)
         Aeq = sparse.hstack([Ax, Bu])
-        leq = np.hstack([x0, np.zeros(N * nx)])
+        leq = np.hstack([-self.x0, np.zeros(self.N * self.nx)])
         ueq = leq
-        return Aeq, leq, ueq
-
-    def getOSPConstraints(self,Aeq,Aineq,leq,lineq,ueq,uineq):
+        # - input and state constraints
+        Aineq = sparse.eye((self.N + 1) * self.nx + self.N * self.nu)
+        lineq = np.hstack([np.kron(np.ones(self.N + 1), self.xmin), np.kron(np.ones(self.N), self.umin)])
+        uineq = np.hstack([np.kron(np.ones(self.N + 1), self.xmax), np.kron(np.ones(self.N), self.umax)])
+        # - OSQP constraints
         A = sparse.vstack([Aeq, Aineq])
         l = np.hstack([leq, lineq])
         u = np.hstack([ueq, uineq])
-        return A,l,u
+        self.prob.setup(P, q, A, l, u, warm_start=True)
 
+    def solveMpc(self):
+        res = self.prob.solve()
+        ctrl = res.x[-self.N * self.nu:-(self.N - 1) * self.nu]
 
-    def ineqConstraints(self,N,nu,nx,umin,umax,xmin,xmax):
-        Aineq = sparse.eye((N + 1) * nx + N * nu)
-        lineq = np.hstack([np.kron(np.ones(N + 1), xmin), np.kron(np.ones(N), umin)])
-        uineq = np.hstack([np.kron(np.ones(N + 1), xmax), np.kron(np.ones(N), umax)])
-        return Aineq, lineq, uineq
+        return ctrl
 
-    def castMpc(self,nu,Q,QN,R,xr):
-
-        # Cast MPC problem to a QP: x = (x(0),x(1),...,x(N),u(0),...,u(N-1))
-        # - quadratic objective
-        #Q,QN,R = self.getObjective()
-        P = sparse.block_diag([sparse.kron(sparse.eye(self.N), Q), QN, sparse.kron(sparse.eye(self.N), R)])
-        # - linear objective
-        #q = np.hstack([np.kron(np.ones(self.N), -Q.dot(xr)), -QN.dot(xr),
-        #               np.zeros(self.N * nu)])
-        q = np.hstack([np.kron(np.ones(self.N), -Q.dot(xr)), -QN.dot(xr),
-                       np.zeros(self.N * nu)])
-        return P, q
-
-    def getRef(self):
-        xr = np.array([6., 6., 6.])
-        return xr
-
-    def getInitObjective(self):
-        Q = sparse.diags([0.1, 0.1, 0.1])
-        QN = Q
-        R = 0.1 * sparse.eye(2)
-        return Q,QN,R
-
-    def getInitVehicleDynamics(self):
-        Ad = sparse.csc_matrix([
-                [1., 0., 0.],
-                [0., 1., 0.],
-                [0., 0., 1.]
-            ])
-        Bd = sparse.csc_matrix([
-            [0, .0],
-            [self.h, .0],
-            [.0, self.h]
-        ])
-        [nx, nu] = Bd.shape
-        return Ad, Bd, nx, nu
-
-
-    def getInitMaxMin(self):
-        umin = np.array([-1.,-1.])
-        umax = np.array([1.,1.])
-        xmin = np.array([-5, -5, -1*np.pi])
-        xmax = np.array([5, 5, np.pi])
-        return umin, umax, xmin, xmax
-
-        # Use this badboy for testing
-        def solveMpcTest(self, x, ref, Ad, Bd, QQ, QQN, RR, N, umin, umax, xmin, xmax):
-            self.x0 = x
-            self.N = N
-            self.Ad = Ad
-            self.Bd = Bd
-
-            [self.nx, self.nu] = self.Bd.shape
-            Aeq, leq, ueq = self.linearDynamics(self.Ad, self.Bd, self.nx, self.x0, self.N)
-            P = sparse.block_diag([sparse.kron(sparse.eye(self.N), QQ), QQN, sparse.kron(sparse.eye(self.N), RR)])
-            q = np.hstack([np.kron(np.ones(self.N), -QQ.dot(ref)), -QQN.dot(ref),
-                           np.zeros(self.N * self.nu)])
-            umin = umin
-            umax = umax
-            xmin = xmin
-            xmax = xmax
-
-            Aineq = sparse.eye((N + 1) * self.nx + self.N * self.nu)
-            lineq = np.hstack([np.kron(np.ones(self.N + 1), xmin), np.kron(np.ones(self.N), umin)])
-            uineq = np.hstack([np.kron(np.ones(self.N + 1), xmax), np.kron(np.ones(self.N), umax)])
-            A = sparse.vstack([Aeq, Aineq])
-            l = np.hstack([leq, lineq])
-            u = np.hstack([ueq, uineq])
-
-            self.prob.setup(P, q, A, l, u, warm_start=True)
-            # Solve
-            res = self.prob.solve()
-            # Check solver status
-            # if res.info.status != 'Solved':
-            #    raise ValueError('OSQP did not solve the problem!')
-            # Apply first control input to the plant
-            ctrl = res.x[-self.N * self.nu:-(self.N - 1) * self.nu]
-            x0 = Ad.dot(self.x0) + Bd.dot(ctrl)
-
-            # Update initial state
-            l[:self.nx] = -x0
-            u[:self.nx] = -x0
-            self.prob.update(l=l, u=u)
-
-            return res.x[-self.N * self.nu:-(self.N - 1) * self.nu]
-
-
-        # Setup workspace
 
 

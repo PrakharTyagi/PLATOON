@@ -5,10 +5,14 @@ import scipy.sparse as sparse
 
 # Discrete time model of a quadcopter
 Ad = sparse.csc_matrix([
-    [1]
+    [1., 0., 0.],
+    [0., 1., 0.],
+    [0., 0., 1]
 ])
 Bd = sparse.csc_matrix([
-  [0.5]
+    [0.5, .0],
+    [0.5, 0.],
+    [0., 0.5]
 ])
 [nx, nu] = Bd.shape
 #print(nx)
@@ -16,18 +20,18 @@ Bd = sparse.csc_matrix([
 # Constraints
 
 u0 = 0.
-umin = np.array([-3])
-umax = np.array([3])
-xmin = np.array([-10])
-xmax = np.array([10])
+umin = np.array([0,0])
+umax = np.array([3,3])
+xmin = np.array([-10,-10,-10])
+xmax = np.array([10,10,10])
 
 # Objective function
-Q = sparse.diags([1])
+Q = sparse.diags([1,1,1])
 QN = Q
-R = 0.1*sparse.eye(1)
+R = 0.1*sparse.eye(2)
 # Initial and reference states
-x0 = np.zeros(1)
-xr = np.array([6])
+x0 = np.zeros(3)
+xr = np.array([6,6,6])
 
 # Prediction horizon
 N = 5
@@ -38,7 +42,7 @@ P = sparse.block_diag([sparse.kron(sparse.eye(N), Q), QN,
                        sparse.kron(sparse.eye(N), R)])
 # - linear objective
 q = np.hstack([np.kron(np.ones(N), -Q.dot(xr)), -QN.dot(xr),
-               np.zeros(N*1)])
+               np.zeros(N*nu)])
 print(P)
 print(q)
 # - linear dynamics
@@ -69,7 +73,7 @@ nsim = 10
 for i in range(nsim):
         # Solve
     res = prob.solve()
-
+    print(xr)
     # Check solver status
     #if res.info.status != 'Solved':
     # raise ValueError('OSQP did not solve the problem!')
@@ -82,12 +86,13 @@ for i in range(nsim):
     #list[1,i]=ctrl
     #list[2,i]=x0
     # Update initial state
+   # print(l)
     l[:nx] = -x0
     u[:nx] = -x0
     prob.update(l=l, u=u)
 #print(list[1,:])
 #print('hej')
 #print(list[2,:])
-print('hehj')
-print(x0)
-print(ctrl)
+#print('hehj')
+#print(x0)
+#print(ctrl)
