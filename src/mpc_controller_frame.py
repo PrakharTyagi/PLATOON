@@ -46,11 +46,11 @@ class Controller():
 
     def _callback(self, data):
         """Called when the subscriber receives data. """
-        x = data.x
-        y = data.y
-        yaw = data.yaw
+        x = data.x2
+        y = data.y2
+        yaw = data.yaw2
         timestamp = data.timestamp
-        vel = data.velocity
+        vel = data.velocity2
 
         self._control(x, y, yaw, vel)
 
@@ -86,7 +86,7 @@ class Controller():
         self.mpc.updatex0([x,y,yaw])
         ctrl = self.mpc.solveMpc()
         return ctrl
-    
+
 
     def set_adjustables(self, values):
         """Used by the GUI to set the adjustable values. values is a list with
@@ -153,7 +153,7 @@ def main():
 
     # Information for controller subscriber.
     node_name = 'controller_sub'
-    topic_name = 'truck2'
+    topic_name = 'truck_topic'
     topic_type = truckmocap
 
     # Data for controller reference path.
@@ -250,6 +250,3 @@ class Mpc_controller:
         ctrl = res.x[-self.N * self.nu:-(self.N - 1) * self.nu]
 
         return ctrl
-
-
-

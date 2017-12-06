@@ -209,7 +209,7 @@ def main():
 
     # Information for controller subscriber.
     node_name = 'controller_sub'
-    topic_name = 'truck2'
+    topic_name = 'truck_topic'
     topic_type = truckmocap
 
     # Data for controller reference path.

@@ -46,22 +46,26 @@ class MovingAverage:
 
 class CircleTruck():
     """Class for simulating a truck driving in a circle. """
-    def __init__(self, theta0 = 0):
+    def __init__(self, theta0 = 0, radius = [1.3, 1.3], offset = [0, 0]):
         self.radius = 1.3
         self.theta0 = theta0     # Initial angle.
         self.velocity = 1
+        self.xradius = radius[0]
+        self.yradius = radius[1]
+        self.xc = offset[0]
+        self.yc = offset[1]
 
         self.theta = self.theta0            # Angle for position on circle.
-        self.x = self.radius*math.cos(self.theta)
-        self.y = self.radius*math.sin(self.theta)
+        self.x = self.xc + self.xradius*math.cos(self.theta)
+        self.y = self.yc + self.yradius*math.sin(self.theta)
         self.yaw = self.theta + math.pi/2   # Angle of truck.
 
     def update_pos(self, time_elapsed):
         """Update the position of the simulated truck. """
         self.theta = self.theta0 + time_elapsed*self.velocity/self.radius
 
-        self.x = self.radius*math.cos(self.theta)
-        self.y = self.radius*math.sin(self.theta)
+        self.x = self.xc + self.xradius*math.cos(self.theta)
+        self.y = self.yc + self.yradius*math.sin(self.theta)
         self.yaw = (self.theta + math.pi/2) % (2*math.pi)
 
 
@@ -153,17 +157,12 @@ class TruckPublisher():
             #print(tid_mellan)
 
 
-            try:
-                # If using simulation, update the position of the truck.
-                if not self.mocap_used:
+            if not self.mocap_used:
+                try:
                     self.tr1.update_pos(self.time_elapsed)
                     self.tr2.update_pos(self.time_elapsed)
-            except Exception as e:
-
-                print "Unexpected error:", sys.exc_info()[0]
-                print('No mocap data. Publisher time: {:.1f}'.format(
-                    self.time_elapsed))
-                pass
+                except:
+                    pass
 
             try:
                 x1, y1, yaw1 = self.tr1.get_values() # Get position.
@@ -202,11 +201,10 @@ class TruckPublisher():
 
             self.v_tot1 = self.vma1.new_ma(self.v_tot1)
             self.v_tot2 = self.vma2.new_ma(self.v_tot2)
-            #print("----------\nHastighet truck 1: {:.5f} \nHastighet truck 2: {:.5f}"
-            #.format(self.v_tot1, self.v_tot2))
+
             # Publish data to the topic and sleep.
             self.pub.publish(self.x1_pos, self.y1_pos, self.yaw1_pos,
-            self.x2_pos, self.y2_pos, self.yaw2_pos,
+                self.x2_pos, self.y2_pos, self.yaw2_pos,
             self.time_elapsed, self.v_tot1, self.v_tot2)
 
             self.rate.sleep()
@@ -257,7 +255,7 @@ class TruckPublisher():
 
 
 def main():
-    mocap_used = False      # True if using Mocap, False if using simulation.
+    mocap_used = True      # True if using Mocap, False if using simulation.
     freq = 20               # Publishing frequency in Hz. aa
     moving_average_num = 1
 
@@ -265,6 +263,13 @@ def main():
     topic_name = 'truck_topic'
     topic_type = truckmocap
     node_name = 'truck_pub'
+
+    # Use simulation if entered 0 as argument. Otherwise use value above.
+    try:
+        if int(sys.argv[1]) == 0:
+            mocap_used = False
+    except:
+        pass
 
     # Create and run the publisher.
     publ = TruckPublisher(node_name = node_name, topic_type = topic_type,

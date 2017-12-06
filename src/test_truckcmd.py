@@ -29,9 +29,9 @@ def receiver(vehicle_id):
     gr = init_gear
 
     if vehicle_id == 1:
-        address = ('192.168.1.193', 2390)
-    elif vehicle_id == 2:
         address = ('192.168.1.194', 2390)
+    elif vehicle_id == 2:
+        address = ('192.168.1.193', 2390)
 
     client_socket = socket(AF_INET, SOCK_DGRAM)
     client_socket.settimeout(0.1)
