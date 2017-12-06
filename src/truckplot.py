@@ -352,7 +352,7 @@ class TruckPlot():
                 pass
 
         self.truck_active = active
-        print(active)
+
 
         self.root.after(delay, self._find_active_trucks)
 
