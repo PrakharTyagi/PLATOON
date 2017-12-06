@@ -79,9 +79,9 @@ class Controller():
 
     def get_omega(self, data):
         """Calculate the control input omega. """
-        x = data.x
-        y = data.y
-        yaw = data.yaw
+        x = data.x2
+        y = data.y2
+        yaw = data.yaw2
 
         index, closest = self.pt.get_closest([x, y])
 

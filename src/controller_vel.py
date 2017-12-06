@@ -26,6 +26,8 @@ class Controller():
         self.sumy = 0               # Accumulated error.
         self.sum_limit = sum_limit  # Limit for accumulated error.
 
+        self.e_list = [0]
+
         # Radii and center for reference path ellipse.
         self.xr = 0
         self.yr = 0
@@ -37,7 +39,8 @@ class Controller():
         self.topic_name = topic_name
         self.topic_type = topic_type
 
-        self.address = address  # IP-address of the truck to be controlled.
+        self.address1 = address1  # IP-address of the truck to be controlled.
+        self.address2 = address2
 
         self.running = False    # Controlling if controller is running or not.
 
@@ -57,26 +60,32 @@ class Controller():
 
     def _callback(self, data):
         """Called when the subscriber receives data. """
-        x = data.x2
-        y = data.y2
-        yaw = data.yaw2
+        x1 = data.x1
+        y1 = data.y1
+        yaw1 = data.yaw1
+        vel1 = data.velocity1
+
+        x2 = data.x2
+        y2 = data.y2
+        yaw2 = data.yaw2
+        vel2 = data.velocity2
+
         timestamp = data.timestamp
-        vel = data.velocity2
 
-        self._control(x, y, yaw, vel)
+        self._control(x1, y1, yaw1, vel1, x2, y2, yaw2, vel2)
 
 
-    def _control(self, x, y, yaw, vel):
+    def _control(self, x1, y1, yaw1, vel1, x2, y2, yaw2, vel2):
         """Perform control actions from received data. Sends new values to
         truck. """
         if self.running:
 
-            omega = self._get_omega(x, y, yaw, vel)
+            omega = self._get_omega(x2, y2, yaw2, vel2)
+            angle = int(self.translator.get_angle(omega, vel2))
 
-            angle = int(self.translator.get_angle(omega, vel))
-            self.v_pwm = self.translator.get_speed(self.v) # pwm value.
+            vel = self._get_velocity(x1, y1, vel1, x2, y2, vel2)
 
-            self.sender.send_data(self.v_pwm, angle)
+            self.sender.send_data(vel, angle)
 
 
     def _get_omega(self, x, y, yaw, vel):
@@ -117,6 +126,31 @@ class Controller():
 
         return omega
 
+    def _get_velocity(self, x1, y1, vel1, x2, y2, vel2):
+        e_dist = pt.get_distance([x1, y1], [x2, y2])
+        e_time = e_dist / vel2
+
+        e_rel = 0.2 - e_time
+        self.e_list.append(e_rel)
+
+        e_p = self.e_list[-1] - self.e_list[-2]
+
+        k_p = 0.5
+        k_i = -0.02
+        k_d = 3
+        sum_limit = 5000
+
+        sum_e = 0
+        sum_e = sum_e + e_rel     # Accumulated error.
+        if sum_e > sum_limit:
+            sum_e = sum_limit
+        if sum_e < -sum_limit:
+            sum_e = -sum_limit
+
+        # PID controller.
+        u = - k_p*e_rel - k_d*e_p - k_i * self.sum_e
+
+        vel = vel2 - u
 
     def _sign(self, x):
         """Returns the sign of x. """
@@ -205,7 +239,7 @@ class Controller():
 
 
 def main():
-    address = ('192.168.1.193', 2390)   # Truck address.
+    address = ('192.168.1.194', 2390)   # Truck 1 address. (orange)
 
     # Information for controller subscriber.
     node_name = 'controller_sub'
@@ -226,7 +260,7 @@ def main():
     sum_limit = 5000    # Limit in accumulated error for I part of PID.
 
     # Initialize controller.
-    controller = Controller(address, node_name, topic_type, topic_name,
+    controller = Controller(address1, address2, node_name, topic_type, topic_name,
         v = v, k_p = k_p, k_i = k_i, k_d = k_d, sum_limit = sum_limit)
     # Set reference path.
     controller.set_reference_path([x_radius, y_radius], center)
