@@ -23,8 +23,11 @@ class Controller():
         self.k_i = k_i
         self.k_d = k_d
 
+        self.latest_v = 1400
+
         self.sumy = 0               # Accumulated error.
         self.sum_limit = sum_limit  # Limit for accumulated error.
+        self.sum_e = 0
 
         self.e_list = [0]
 
@@ -39,8 +42,7 @@ class Controller():
         self.topic_name = topic_name
         self.topic_type = topic_type
 
-        self.address1 = address1  # IP-address of the truck to be controlled.
-        self.address2 = address2
+        self.address = address  # IP-address of the truck to be controlled.
 
         self.running = False    # Controlling if controller is running or not.
 
@@ -84,6 +86,7 @@ class Controller():
             angle = int(self.translator.get_angle(omega, vel2))
 
             vel = self._get_velocity(x1, y1, vel1, x2, y2, vel2)
+            self.latest_v = vel
 
             self.sender.send_data(vel, angle)
 
@@ -120,14 +123,14 @@ class Controller():
                                 gamma_p*(1 + sin_t**2) +
                                 gamma_pp*ey*cos_t*sin_t/(1 - gamma_p*ey))
 
-        print(
-            'Ctrl error: {:5.2f},  sum error: {:7.2f},  omega: {:5.2f}'.format(
-            ey, self.sumy, omega))
+        #print(
+        #    'Ctrl error: {:5.2f},  sum error: {:7.2f},  omega: {:5.2f}'.format(
+        #    ey, self.sumy, omega))
 
         return omega
 
     def _get_velocity(self, x1, y1, vel1, x2, y2, vel2):
-        e_dist = pt.get_distance([x1, y1], [x2, y2])
+        e_dist = self.pt.get_distance([x2, y2], [x1, y1])
         e_time = e_dist / vel2
 
         e_rel = 0.2 - e_time
@@ -136,21 +139,26 @@ class Controller():
         e_p = self.e_list[-1] - self.e_list[-2]
 
         k_p = 0.5
-        k_i = -0.02
-        k_d = 3
-        sum_limit = 5000
+        k_i = 0.1
+        k_d = 0
+        sum_limit = 10
 
-        sum_e = 0
-        sum_e = sum_e + e_rel     # Accumulated error.
-        if sum_e > sum_limit:
-            sum_e = sum_limit
-        if sum_e < -sum_limit:
-            sum_e = -sum_limit
+        self.sum_e = self.sum_e + e_rel     # Accumulated error.
+        if self.sum_e > sum_limit:
+            self.sum_e = sum_limit
+        if self.sum_e < -sum_limit:
+            self.sum_e = -sum_limit
 
         # PID controller.
         u = - k_p*e_rel - k_d*e_p - k_i * self.sum_e
 
-        vel = vel2 - u
+        vel = u
+
+        print(
+           'Ctrl error: {:5.2f},  u: {:7.2f},  vel: {:5.2f}'.format(
+           e_rel, u, vel))
+
+        return vel
 
     def _sign(self, x):
         """Returns the sign of x. """
@@ -243,7 +251,7 @@ def main():
 
     # Information for controller subscriber.
     node_name = 'controller_sub'
-    topic_name = 'truck2'
+    topic_name = 'truck_topic'
     topic_type = truckmocap
 
     # Data for controller reference path.
@@ -260,7 +268,7 @@ def main():
     sum_limit = 5000    # Limit in accumulated error for I part of PID.
 
     # Initialize controller.
-    controller = Controller(address1, address2, node_name, topic_type, topic_name,
+    controller = Controller(address, node_name, topic_type, topic_name,
         v = v, k_p = k_p, k_i = k_i, k_d = k_d, sum_limit = sum_limit)
     # Set reference path.
     controller.set_reference_path([x_radius, y_radius], center)
