@@ -101,6 +101,8 @@ class Controller():
             omega2 = self.frenet2.get_omega(x2, y2, yaw2, vel2)
             angle2 = int(self.translator.get_angle(omega2, vel2))
             v2 = self._get_velocity(x1, y1, vel1, x2, y2, vel2)
+            if v2 < 1385:
+                v2 = 1385
             self.sender2.send_data(v2, angle2)
 
 
