@@ -16,10 +16,11 @@ class DataSender():
     def __init__(self, node_name, topic_type, topic_name, addresses,
         print_info = False):
 
-        self.addresses = addresses
+        self.addresses = addresses  # Truck IP addresses.
         self.seqNums = [0xFFFF for i in range(len(addresses))]
         self.print_info = print_info
 
+        # Subscriber initialization.
         rospy.init_node(node_name, anonymous = True)
         rospy.Subscriber(topic_name, topic_type, self._callback)
 
@@ -29,6 +30,7 @@ class DataSender():
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.client_socket.settimeout(0.1)
 
+        # Send first message.
         self._send_first()
 
         rospy.spin()
@@ -36,17 +38,17 @@ class DataSender():
 
     def _callback(self, data):
         """Receives data from the topic and sends it to the right truck. """
-        self._send_data(data.truck_id, data.angle, data.speed)
+        self._send_data(data.truck_id, data.speed, data.angle)
 
 
     def _send_first(self):
-        """Sends the first data packet. """
+        """Sends the first data packet to all the addresses. """
         for i, x in enumerate(self.addresses):
             self._send_data(i + 1, 1500, 1500, True)
 
 
-    def _send_data(self, truck_id, angle, speed, first = False):
-        """Sends angle, speed to truck truck_id. """
+    def _send_data(self, truck_id, speed, angle, first = False):
+        """Sends speed, angle to truck truck_id. """
         # Get the address of the truck corresponding to the truck_id.
         try:
             address = self.addresses[truck_id - 1]
@@ -73,15 +75,17 @@ class DataSender():
                 ms,  ns, self.seqNum, speed, angle, 60))
 
         self.client_socket.sendto(command_msg, address)
+
+        # Print info if enabled.
         if self.print_info:
-            print('Sending angle {:.0f}, speed {:.0f} to {}'.format(
-            angle, speed, address[0]))
+            print('Sending [speed {:.0f}, angle {:.0f}] to {}'.format(
+            speed, angle, address[0]))
 
 
 def main(args):
     topic_name = 'truck_control'
     topic_type = truckcontrol
-    node_name = 'sender_sub'
+    node_name = 'datasender'
 
     address1 = ('192.168.1.194', 2390)
     address2 = ('192.168.1.193', 2390)
