@@ -2,6 +2,7 @@
 
 import rospy
 import math
+import sys
 
 from platoon.msg import truckmocap
 import path
@@ -12,7 +13,7 @@ class Controller():
     """Class for subscribing to topic mocap data, calculate control input and
     send commands to the truck. """
     def __init__(self, address, node_name, topic_type, topic_name,
-        v = 0, k_p = 0, k_i = 0, k_d = 0, sum_limit = 0):
+        v = 0, k_p = 0, k_i = 0, k_d = 0, sum_limit = 0, truck_id = 2):
 
         # List of strings used by the GUI to see which values it can adjust.
         self.adjustables = ['k_p', 'k_i', 'k_d', 'v', 'sum_limit']
@@ -25,6 +26,8 @@ class Controller():
 
         self.sumy = 0               # Accumulated error.
         self.sum_limit = sum_limit  # Limit for accumulated error.
+
+        self.truck_id = truck_id
 
         # Radii and center for reference path ellipse.
         self.xr = 0
@@ -52,16 +55,23 @@ class Controller():
 
         self.v_pwm = self.translator.get_speed(self.v) # PWM velocity.
 
-        print('\nController initialized.\n')
+        print('\nController initialized. Truck {}.\n'.format(self.truck_id))
 
 
     def _callback(self, data):
         """Called when the subscriber receives data. """
-        x = data.x2
-        y = data.y2
-        yaw = data.yaw2
+        if self.truck_id == 2:
+            x = data.x2
+            y = data.y2
+            yaw = data.yaw2
+            vel = data.velocity2
+        else:
+            x = data.x1
+            y = data.y1
+            yaw = data.yaw1
+            vel = data.velocity1
+
         timestamp = data.timestamp
-        vel = data.velocity2
 
         self._control(x, y, yaw, vel)
 
@@ -204,8 +214,15 @@ class Controller():
         self.stop()
 
 
-def main():
+def main(args):
     address = ('192.168.1.193', 2390)   # Truck address.
+    truck_id = 2
+    try:
+        if int(args[1]) == 1:
+                address = ('192.168.1.194', 2390)   # Truck address.
+                truck_id = 1
+    except:
+        pass
 
     # Information for controller subscriber.
     node_name = 'controller_sub'
@@ -227,7 +244,9 @@ def main():
 
     # Initialize controller.
     controller = Controller(address, node_name, topic_type, topic_name,
-        v = v, k_p = k_p, k_i = k_i, k_d = k_d, sum_limit = sum_limit)
+        v = v, k_p = k_p, k_i = k_i, k_d = k_d, sum_limit = sum_limit,
+        truck_id = truck_id)
+
     # Set reference path.
     controller.set_reference_path([x_radius, y_radius], center)
 
@@ -236,4 +255,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)
