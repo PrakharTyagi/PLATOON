@@ -7,6 +7,7 @@ from platoon.msg import truckmocap
 import path
 import trucksender
 import translator
+import frenetpid
 
 class Controller():
     """Class for subscribing to topic mocap data, calculate control input and
@@ -60,8 +61,10 @@ class Controller():
         self.translator = translator.Translator()
         self.sender1 = trucksender.TruckSender(self.address1)
         self.sender2 = trucksender.TruckSender(self.address2)
-        self.frenet1 = frenetpid.FrenetPID(path, k_p1, k_i1, k_d1, sum_limit1)
-        self.frenet2 = frenetpid.FrenetPID(path, k_p2, k_i2, k_d2, sum_limit2)
+        self.frenet1 = frenetpid.FrenetPID(self.pt, k_p1, k_i1, k_d1,
+            sum_limit1)
+        self.frenet2 = frenetpid.FrenetPID(self.pt, k_p2, k_i2, k_d2,
+            sum_limit2)
 
         self.v_pwm = self.translator.get_speed(self.v) # PWM velocity.
 
@@ -91,12 +94,12 @@ class Controller():
         if self.running:
 
             omega1 = self.frenet1.get_omega(x1, y1, yaw1, vel1)
-            angle1 = int(self.translator.get_angle(omega, vel1))
+            angle1 = int(self.translator.get_angle(omega1, vel1))
             v1 = self.translator.get_speed(vel1)
             self.sender1.send_data(v1,angle1)
 
             omega2 = self.frenet2.get_omega(x2, y2, yaw2, vel2)
-            angle2 = int(self.translator.get_angle(omega, vel2))
+            angle2 = int(self.translator.get_angle(omega2, vel2))
             v2 = self._get_velocity(x1, y1, vel1, x2, y2, vel2)
             self.sender2.send_data(v2, angle2)
 
@@ -174,12 +177,12 @@ class Controller():
             print('\nInvalid control parameters entered.')
             return
 
-        self.k_p = k_p
-        self.k_i = k_i
-        self.k_d = k_d
+        self.k_p1 = k_p
+        self.k_i1 = k_i
+        self.k_d1 = k_d
         self.v = v
         self.v_pwm = self.translator.get_speed(self.v)
-        self.sum_limit = sum_limit
+        self.sum_limit1 = sum_limit
         self.sumy = 0
 
         print('\nControl parameter changes applied.')
@@ -190,8 +193,8 @@ class Controller():
         Returns two lists. The first list is a list of the names/descriptors
         of the adjustable parameters. The second is the current values of those
         parameters. """
-        return self.adjustables, [self.k_p, self.k_i, self.k_d, self.v,
-            self.sum_limit]
+        return self.adjustables, [self.k_p1, self.k_i1, self.k_d1, self.v,
+            self.sum_limit1]
 
 
     def set_reference_path(self, radius, center = [0, 0], pts = 400):
