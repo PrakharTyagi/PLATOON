@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
+# Currently errors in model, incorrect code, or in need of tuning.
+# Class for running MPC path following with one truck. Uses Frenet states.
+# Uses topic to publish data to trucks via datasender, instead of trucksender.
+
 import rospy
 
 import numpy as np
-import scipy as sp
 import scipy.sparse as sparse
-import osqp
 
 import math
 import sys
@@ -13,7 +15,7 @@ import sys
 from platoon.msg import truckmocap
 from platoon.msg import truckcontrol
 import path
-import trucksender
+import mpcsolver
 
 class Controller():
     """Class for subscribing to topic mocap data, calculate control input and
@@ -28,7 +30,6 @@ class Controller():
         self.v_ref = v_ref  # Reference speed in m/s.
 
         # Inputs
-        self.alpha = 0.  # Wheel angle.
         self.ua = 0.     # Wheel angle pwm.
         self.uv = 0.     # Throttle pwm. speed_pwm = 1500 - uv
 
@@ -48,9 +49,9 @@ class Controller():
         self.xmax = np.array([2., np.inf, 2., math.pi/6])
 
         # Costs
-        self.Q = sparse.diags([3.0, 0.0, 3.0, 0.0])
+        self.Q = sparse.diags([1.0, 0.0, 1, 0.0])
         self.QN = self.Q
-        self.R = sparse.diags([0.001, 0.005])
+        self.R = sparse.diags([0.1, 0.1])
 
         # Initial value
         self.x0 = np.zeros(4)
@@ -59,7 +60,7 @@ class Controller():
         self.xref = np.array([0, 0, self.v_ref, 0])
 
         # Horizon length
-        self.N = 20
+        self.N = 5
 
         # Values for dynamics
         self.l = 0.27                       # Length between wheel pairs.
@@ -79,11 +80,13 @@ class Controller():
         self.k = 0  # Iteration
 
         self.xsim = np.array([0.0, 0.0, 0.0, 0.0])    # Simulated state
+        self.xsim1 = self.xsim                        # Previous simulated state
+        self.xsim2 = self.xsim
 
         # Setup MPC controller
         Ad, Bd = self._get_AB(0)
 
-        self.mpc = Mpc_controller(Ad, Bd, self.Q, self.QN, self.R, self.N,
+        self.mpc = mpcsolver.MPCSolver(Ad, Bd, self.Q, self.QN, self.R, self.N,
             self.x0, self.umin, self.umax, self.xmin, self.xmax, self.xref)
 
         self.mpc.prob.verbose = False
@@ -95,10 +98,7 @@ class Controller():
         # Setup.
         self.running = False    # Controlling if controller is running or not.
 
-        # Create translator and sender.
-        #self.sender = trucksender.TruckSender(address)
-
-        # Setup subscriber node.
+        # Setup subscriber node and publisher..
         rospy.init_node(node_name, anonymous = True)
         rospy.Subscriber(mocap_topic_name, mocap_topic_type, self._callback)
         self.pub = rospy.Publisher(truck_topic_name, truck_topic_type,
@@ -132,7 +132,7 @@ class Controller():
         truck. """
         index, _ = self.pt.get_closest([x, y]) # Closest point on path.
 
-        sim = False
+        sim = True
 
         # Get the current states. If simulated get the simulated state.
         if sim:
@@ -181,8 +181,11 @@ class Controller():
             self.ua = self.ua + d_ua
             self.uv = self.uv + d_uv
 
-            # Update simulated system.
-            self.xsim = self.xsim + Ad.dot(self.x0) + Bd.dot(control)
+            # Update simulated system (probably incorrect code).
+            self.xsim = self.xsim + Ad.dot(self.xsim - self.xsim2) + \
+                Bd.dot(control)
+            self.xsim2 = self.xsim1
+            self.xsim1 = self.xsim
 
             print('da: {:7.2f}, dv: {:6.2f} ||'.format(
                 control[0], control[1])),
@@ -210,7 +213,7 @@ class Controller():
         print('angle: {:4.0f}, speed: {:4.0f} ||'.format(
             self.angle_pwm, self.speed_pwm)),
 
-        print('y: {:5.2f}'.format(self.a))
+        print('y: {:5.2f}'.format(self.y))
 
         # Send values to the truck.
         #self.sender.send_data(self.speed_pwm, self.angle_pwm)
@@ -220,6 +223,13 @@ class Controller():
         self.k += 1
 
 
+    def sign(self, x):
+        if x < 0:
+            return -1
+        else:
+            return 1
+
+
     def _get_AB(self, index):
         """Return discrete A and B matrices. Linearized and discretized
         system dynamics. """
@@ -227,9 +237,9 @@ class Controller():
 
         # Calculate entries for the linearized A matrix.
         a11 = 0
-        a12 = self.v*math.cos(self.theta + self.a)
-        a13 = math.sin(self.theta + self.a)
-        a14 = self.v*math.cos(self.theta + self.a)
+        a12 = self.v*math.cos(self.theta + self.a)*self.sign(-self.y)
+        a13 = math.sin(self.theta + self.a)*self.sign(-self.y)
+        a14 = self.v*math.cos(self.theta + self.a)*self.sign(-self.y)
 
         a21 = -self.v*math.cos(self.theta + self.a)*(cc/(1 - cc*self.y))**2
         a22 = self.v*math.sin(self.theta + self.a)*cc/(1 - cc*self.y)
@@ -348,118 +358,6 @@ class Controller():
         self.start()
         rospy.spin()
         self.stop()
-
-
-
-class Mpc_controller:
-
-    def __init__(self,Ad,Bd,Q,QN,R,N,x0,umin,umax,xmin,xmax,xr):
-
-        self.Ad = Ad
-        self.Bd = Bd
-        [self.nx, self.nu] = Bd.shape
-
-        self.Q  = Q
-        self.QN = QN
-        self.R  = R
-        self.N = N
-        self.x0 = x0
-        self.umin = umin
-        self.umax = umax
-        self.xmin = xmin
-        self.xmax = xmax
-        self.xr = xr
-        self.prob = osqp.OSQP()
-        self.updateController()
-
-
-    def updateDynamics(self,Ad,Bd):
-        self.Ad = Ad
-        self.Bd = Bd
-        [self.nx, self.nu] = Bd.shape
-        self.updateController()
-
-    def updateMaxMin(self,umin,umax,xmin,xmax):
-        self.umin = umin
-        self.umax = umax
-        self.xmin = xmax
-        self.xmax = xmax
-        self.updateController()
-
-    def updateRef(self,xr):
-        self.xr = xr
-        self.updateController()
-
-    def updateHorizon(self,N):
-        self.N = N
-        self.updateController()
-
-    def updatex0(self,x0):
-        self.x0 = x0
-        self.updateController()
-
-    def updateObjective(self,Q,QN,R):
-        self.Q  = Q
-        self.QN = QN
-        self.R  = R
-        self.updateController()
-
-    def updateController(self):
-        P = sparse.block_diag([sparse.kron(sparse.eye(self.N), self.Q), self.QN,
-                               sparse.kron(sparse.eye(self.N), self.R)])
-        # - linear objective
-        q = np.hstack([np.kron(np.ones(self.N), -self.Q.dot(self.xr)), -self.QN.dot(self.xr),
-                       np.zeros(self.N * self.nu)])
-
-        Ax = sparse.kron(sparse.eye(self.N + 1), -sparse.eye(self.nx)) + sparse.kron(sparse.eye(self.N + 1, k=-1), self.Ad)
-        Bu = sparse.kron(sparse.vstack([sparse.csc_matrix((1, self.N)), sparse.eye(self.N)]), self.Bd)
-        Aeq = sparse.hstack([Ax, Bu])
-        leq = np.hstack([-self.x0, np.zeros(self.N * self.nx)])
-        ueq = leq
-        # - input and state constraints
-        Aineq = sparse.eye((self.N + 1) * self.nx + self.N * self.nu)
-        lineq = np.hstack([np.kron(np.ones(self.N + 1), self.xmin), np.kron(np.ones(self.N), self.umin)])
-        uineq = np.hstack([np.kron(np.ones(self.N + 1), self.xmax), np.kron(np.ones(self.N), self.umax)])
-        # - OSQP constraints
-        A = sparse.vstack([Aeq, Aineq])
-        l = np.hstack([leq, lineq])
-        u = np.hstack([ueq, uineq])
-        self.prob.setup(P, q, A, l, u, warm_start=True, verbose = False)
-
-    def solveMpc(self):
-        res = self.prob.solve()
-        ctrl = res.x[-self.N * self.nu:-(self.N - 1) * self.nu]
-
-        return ctrl
-
-
-
-    def update_bounds(self, umin, umax, xmin, xmax):
-        """Updates the lower and upper bound for the inputs and states. """
-        leq = np.hstack([-self.x0, np.zeros(self.N * self.nx)])
-        ueq = leq
-
-        lineq = np.hstack([np.kron(np.ones(self.N + 1), self.xmin),
-            np.kron(np.ones(self.N), self.umin)])
-        uineq = np.hstack([np.kron(np.ones(self.N + 1), self.xmax),
-            np.kron(np.ones(self.N), self.umax)])
-
-        l_new = np.hstack([leq, lineq])
-        u_new = np.hstack([ueq, uineq])
-
-        self.prob.update(l = l_new, u = u_new)
-
-
-    def update_q(self, xr):
-        """Updates the reference value, which results in updating q. """
-        self.xr = xr
-
-        q = np.hstack(
-        [np.kron(np.ones(self.N), -self.Q.dot(self.xr)),
-            -self.QN.dot(self.xr),
-            np.zeros(self.N * self.nu)])
-
-        self.prob.update(q = q)
 
 
 
