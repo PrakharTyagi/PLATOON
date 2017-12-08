@@ -477,7 +477,6 @@ class Path:
 
         i = i1
         i_lower = i2 if i2 < i1 else i2 - len(self.path)
-        print('i {}, il{}'.format(i, i_lower))
 
         while i >= i_lower:
             xy_l = self.get_xy(i - 1)
