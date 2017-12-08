@@ -15,6 +15,11 @@ class Path:
         self.gammapp = []
         self._lp = True     # Used for graphical application.
 
+        self.xr = 0
+        self.yr = 0
+        self.xc = 0
+        self.yc = 0
+
 
     def save(self, filename):
         """Saves path to file. Writes each line on the format x,y"""
@@ -82,6 +87,13 @@ class Path:
 
         self.path = newpath
         self._calc_gammas()
+
+        self.xr = x_mag
+        self.yr = y_mag
+        self.xc = center[0]
+        self.yc = center[1]
+
+        return x_mag, y_mag, center[0], center[1]
 
 
     def reverse(self):

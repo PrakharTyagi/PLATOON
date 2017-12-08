@@ -231,11 +231,15 @@ class ControllerGUI():
                 print('New reference path applied.')
         except Exception as e:
             print('Invalid values entered.')
-
-        self.xr_var.set(self.controller.xr)
-        self.yr_var.set(self.controller.yr)
-        self.xc_var.set(self.controller.xc)
-        self.yc_var.set(self.controller.yc)
+            
+        try:
+            self.xr_var.set(self.controller.pt.xr)
+            self.yr_var.set(self.controller.pt.yr)
+            self.xc_var.set(self.controller.pt.xc)
+            self.yc_var.set(self.controller.pt.yc)
+        except Exception as e:
+            print('Failed to display reference path values: {}'.format(e))
+            pass
 
         self.apply_path_button.focus()
 
