@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# Creates controller1 and a GUI for it. Choose truck 1 or 2 by entering the
+# number as argument when running the script. 
+
 import controllerGUI
 import controller1
 
@@ -25,9 +28,9 @@ def main(args):
     topic_type = truckmocap
 
     # Data for controller reference path.
-    x_radius = 1.6
+    x_radius = 1.7
     y_radius = 1.2
-    center = [0.3, -0.5]
+    center = [0.3, -1.3]
 
     # Controller tuning variables.
     v = 0.89             # Speed of the truck.

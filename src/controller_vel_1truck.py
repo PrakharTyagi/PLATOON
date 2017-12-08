@@ -2,41 +2,33 @@
 
 import rospy
 import math
+import sys
 
 from platoon.msg import truckmocap
-from platoon.msg import truckcontrol
 import path
 import trucksender
 import translator
-import frenetpid
 
 class Controller():
     """Class for subscribing to topic mocap data, calculate control input and
     send commands to the truck. """
-    def __init__(self, address1, address2, node_name, topic_type, topic_name,
-        v = 0, k_p1 = 0, k_i1 = 0, k_d1 = 0, sum_limit1 = 0,
-        k_p2 = 0, k_i2 = 0, k_d2 = 0, sum_limit2 = 0):
+    def __init__(self, address, node_name, topic_type, topic_name,
+        v = 0, k_p = 0, k_i = 0, k_d = 0, sum_limit = 100):
 
         # List of strings used by the GUI to see which values it can adjust.
         self.adjustables = ['k_p', 'k_i', 'k_d', 'v', 'sum_limit']
 
         # Velocity of the truck and PID parameters.
         self.v = v
-        self.k_p1 = k_p1
-        self.k_i1 = k_i1
-        self.k_d1 = k_d1
-
-        self.k_p2 = k_p2
-        self.k_i2 = k_i2
-        self.k_d2 = k_d2
+        self.k_p = k_p
+        self.k_i = k_i
+        self.k_d = k_d
 
         self.sumy = 0               # Accumulated error.
-        self.sum_limit1 = sum_limit1  # Limit for accumulated error.
+        self.sum_limit = sum_limit  # Limit for accumulated error.
         self.sum_e = 0
-        self.sum_limit2 = sum_limit2
 
-        self.e_list = [0]
-        self.old_e_rel = 0
+        self.old_e_rel = 0  # Keep track of previous error value.
 
         # Radii and center for reference path ellipse.
         self.xr = 0
@@ -44,31 +36,25 @@ class Controller():
         self.xc = 0
         self.yc = 0
 
+        self.stop_angle = 1500  # Angle used when stopping the truck.
+
         # Information for subscriber node.
         self.node_name = node_name
         self.topic_name = topic_name
         self.topic_type = topic_type
 
-        self.address1 = address1  # IP-address of the truck to be controlled.
-        self.address2 = address2  # IP-address of the truck to be controlled.
+        self.address = address  # IP-address of the truck to be controlled.
 
         self.running = False    # Controlling if controller is running or not.
 
         # Setup subscriber node.
         rospy.init_node(self.node_name, anonymous = True)
         rospy.Subscriber(self.topic_name, self.topic_type, self._callback)
-        self.pub = rospy.Publisher('truck_control', truckcontrol,
-            queue_size = 1)
 
         # Create reference path object, translator, and sender.
         self.pt = path.Path()
         self.translator = translator.Translator()
-        self.sender1 = trucksender.TruckSender(self.address1)
-        self.sender2 = trucksender.TruckSender(self.address2)
-        self.frenet1 = frenetpid.FrenetPID(self.pt, k_p1, k_i1, k_d1,
-            sum_limit1)
-        self.frenet2 = frenetpid.FrenetPID(self.pt, k_p2, k_i2, k_d2,
-            sum_limit2)
+        self.sender = trucksender.TruckSender(self.address)
 
         self.v_pwm = self.translator.get_speed(self.v) # PWM velocity.
 
@@ -97,41 +83,79 @@ class Controller():
         truck. """
         if self.running:
 
-            omega1 = self.frenet1.get_omega(x1, y1, yaw1, vel1)
-            angle1 = int(self.translator.get_angle(omega1, vel1))
-            v1 = self.translator.get_speed(vel1)
-            #self.sender1.send_data(v1,angle1)
-            self.pub.publish(1, v1, angle1)
+            omega = self._get_omega(x2, y2, yaw2, vel2)
+            angle = int(self.translator.get_angle(omega, vel2))
 
-            omega2 = self.frenet2.get_omega(x2, y2, yaw2, vel2)
-            angle2 = int(self.translator.get_angle(omega2, vel2))
-            v2 = self._get_velocity(x1, y1, vel1, x2, y2, vel2)
-            if v2 < 1385:
-                v2 = 1385
-            #self.sender2.send_data(v2, angle2)
-            self.pub.publish(2, v2, angle2)
+            vel = self._get_velocity(x1, y1, vel1, x2, y2, vel2)
 
+            vel_new = 1450 - vel
+
+            if vel_new < 1420:
+                vel_new = 1420
+
+            print('pwm {:4.0f}'.format(vel_new))
+
+            self.sender.send_data(vel_new, angle)
+
+            self.stop_angle = angle
+
+
+    def _get_omega(self, x, y, yaw, vel):
+        """Calculate the control input omega. """
+
+        index, closest = self.pt.get_closest([x, y]) # Closest point on path.
+
+        ey = self.pt.get_ey([x, y])     # y error (distance from path)
+
+        self.sumy = self.sumy + ey      # Accumulated error.
+        if self.sumy > self.sum_limit:
+            self.sumy = self.sum_limit
+        if self.sumy < -self.sum_limit:
+            self.sumy = -self.sum_limit
+
+        gamma = self.pt.get_gamma(index)
+        gamma_p = self.pt.get_gammap(index)
+        gamma_pp = self.pt.get_gammapp(index)
+
+        cos_t = math.cos(yaw - gamma)     # cos(theta)
+        sin_t = math.sin(yaw - gamma)     # sin(theta)
+
+        # y prime (derivative w.r.t. path).
+        yp = math.tan(yaw - gamma)*(1 - gamma_p*ey)*self._sign(
+            vel*cos_t/(1 - gamma_p*ey))
+
+        # PID controller.
+        u = - self.k_p*ey - self.k_d*yp - self.k_i * self.sumy
+
+        # Feedback linearization.
+        omega = vel*cos_t/(1 - gamma_p*ey) * (u*cos_t**2/(1 - gamma_p*ey) +
+                                gamma_p*(1 + sin_t**2) +
+                                gamma_pp*ey*cos_t*sin_t/(1 - gamma_p*ey))
+
+        #print(
+        #    'Ctrl error: {:5.2f},  sum error: {:7.2f},  omega: {:5.2f}'.format(
+        #    ey, self.sumy, omega))
+
+        return omega
 
     def _get_velocity(self, x1, y1, vel1, x2, y2, vel2):
-        e_dist = self.pt.get_distance([x2, y2], [x1, y1])
+        e_dist = self.pt.get_distance([x1, y1],[x2, y2])
         try:
             e_time = (e_dist + 0.4) / vel2
-        except:
+        except Exception as e:
             e_time = e_dist + 0.4
 
-        e_ref = 0.2
+        e_ref = 0.3
         e_rel = e_ref - e_time
 
         e_p = e_rel - self.old_e_rel
+
         self.old_e_rel = e_rel
 
-        # k_p = self.k_p2
-        # k_i = self.k_i2
-        # k_d = self.k_d2
         k_p = 10
         k_i = 1
         k_d = 5
-        sum_limit = self.sum_limit2
+        sum_limit = 10
 
         self.sum_e = self.sum_e + e_rel     # Accumulated error.
         if self.sum_e > sum_limit:
@@ -145,8 +169,8 @@ class Controller():
         vel = u
 
         print(
-           'Ctrl error: {:5.2f},  u: {:7.2f},  vel: {:5.2f}'.format(
-           e_rel, u, vel))
+           'Ctrl error: {:5.2f},  v2: {:7.2f},  vel: {:5.2f}, d = {:5.2f}'.format(
+           e_rel, vel2, vel, e_dist)),
 
         return vel
 
@@ -160,10 +184,7 @@ class Controller():
 
     def stop(self):
         """Stops/pauses the controller. """
-        # self.sender1.stop_truck()
-        # self.sender2.stop_truck()
-        self.pub.publish(1, 1500, 1500)
-        self.pub.publish(2, 1500, 1500)
+        self.sender.stop_truck(self.stop_angle)
         if self.running:
             self.running = False
             print('Controller stopped.\n')
@@ -194,12 +215,12 @@ class Controller():
             print('\nInvalid control parameters entered.')
             return
 
-        self.k_p1 = k_p
-        self.k_i1 = k_i
-        self.k_d1 = k_d
+        self.k_p = k_p
+        self.k_i = k_i
+        self.k_d = k_d
         self.v = v
         self.v_pwm = self.translator.get_speed(self.v)
-        self.sum_limit1 = sum_limit
+        self.sum_limit = sum_limit
         self.sumy = 0
 
         print('\nControl parameter changes applied.')
@@ -210,8 +231,8 @@ class Controller():
         Returns two lists. The first list is a list of the names/descriptors
         of the adjustable parameters. The second is the current values of those
         parameters. """
-        return self.adjustables, [self.k_p1, self.k_i1, self.k_d1, self.v,
-            self.sum_limit1]
+        return self.adjustables, [self.k_p, self.k_i, self.k_d, self.v,
+            self.sum_limit]
 
 
     def set_reference_path(self, radius, center = [0, 0], pts = 400):
@@ -239,41 +260,41 @@ class Controller():
         self.stop()
 
 
-def main():
-    address1 = ('192.168.1.194', 2390)   # Tryck 1 (orange)
-    address2 = ('192.168.1.193', 2390)   # Truck 2 (white)
-
+def main(args):
+    address = ('192.168.1.193', 2390)   # Truck 1 address. (orange)
+    try:
+        if int(args[1]) == 1:
+                address = ('192.168.1.194', 2390)   # Truck address.
+    except:
+        pass
+    print(address)
     # Information for controller subscriber.
     node_name = 'controller_sub'
     topic_name = 'truck_topic'
     topic_type = truckmocap
 
     # Data for controller reference path.
-    x_radius = 1.6
+    x_radius = 1.7
     y_radius = 1.2
-    center = [0.3, -0.5]
+    center = [0.3, -1.3]
 
     # Controller tuning variables.
     v = 0.89             # Velocity used by translator model.
 
-    k_p1 = 0.5
-    k_i1 = -0.02
-    k_d1 = 3
-    sum_limit1 = 5000    # Limit in accumulated error for I part of PID.
-
-    k_p2 = 0.5
-    k_i2 = -0.02
-    k_d2 = 3
-    sum_limit2 = 5000    # Limit in accumulated error for I part of PID.
+    k_p = 0.5
+    k_i = -0.02
+    k_d = 3
+    sum_limit = 5000    # Limit in accumulated error for I part of PID.
 
     # Initialize controller.
-    controller = Controller(address1, address2, node_name, topic_type, topic_name,
-        v = v, k_p1 = k_p1, k_i1 = k_i1, k_d1 = k_d1, sum_limit1 = sum_limit1,
-        k_p2 = k_p2, k_i2 = k_i2, k_d2 = k_d2, sum_limit2 = sum_limit2)
+    controller = Controller(address, node_name, topic_type, topic_name,
+        v = v, k_p = k_p, k_i = k_i, k_d = k_d, sum_limit = sum_limit)
     # Set reference path.
     controller.set_reference_path([x_radius, y_radius], center)
 
     controller.run()
 
+
+
 if __name__ == '__main__':
-    main()
+    main(sys.argv)

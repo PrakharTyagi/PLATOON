@@ -24,6 +24,8 @@ class Controller():
         self.k_i = k_i
         self.k_d = k_d
 
+        self.stop_angle = 1500
+
         self.sumy = 0               # Accumulated error.
         self.sum_limit = sum_limit  # Limit for accumulated error.
 
@@ -87,6 +89,9 @@ class Controller():
             self.v_pwm = self.translator.get_speed(self.v) # pwm value.
 
             self.sender.send_data(self.v_pwm, angle)
+            print('pwm {}'.format(self.v_pwm))
+
+            self.stop_angle = angle
 
 
     def _get_omega(self, x, y, yaw, vel):
@@ -123,7 +128,7 @@ class Controller():
 
         print(
             'Ctrl error: {:5.2f},  sum error: {:7.2f},  omega: {:5.2f}'.format(
-            ey, self.sumy, omega))
+            ey, self.sumy, omega)),
 
         return omega
 
@@ -138,7 +143,7 @@ class Controller():
 
     def stop(self):
         """Stops/pauses the controller. """
-        self.sender.stop_truck()
+        self.sender.stop_truck(self.stop_angle)
         if self.running:
             self.running = False
             print('Controller stopped.\n')
@@ -230,9 +235,9 @@ def main(args):
     topic_type = truckmocap
 
     # Data for controller reference path.
-    x_radius = 1.6
+    x_radius = 1.7
     y_radius = 1.2
-    center = [0.3, -0.5]
+    center = [0.3, -1.3]
 
     # Controller tuning variables.
     v = 0.89             # Velocity used by translator model.
