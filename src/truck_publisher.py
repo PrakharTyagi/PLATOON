@@ -7,6 +7,7 @@ import math
 import sys
 from mocap_source_2 import *
 
+
 class MovingAverage:
     """Class for calculating a moving average. At start, the average of the so
     far entered numbers are returned. Insert a new value and get the updated
@@ -44,15 +45,17 @@ class MovingAverage:
         """Returns the moving average without inserting a new value. """
         return self.ma
 
+
 class CircleTruck():
     """Class for simulating a truck driving in a circle. """
-    def __init__(self, theta0 = 0, radius = [1.3, 1.3], offset = [0, 0]):
-        self.radius = 1.3
-        self.theta0 = theta0     # Initial angle.
-        self.velocity = 1
-        self.xradius = radius[0]
+    def __init__(self,
+        omega = 0.75, theta0 = 0, radius = [1.3, 1.3], offset = [0, 0]):
+
+        self.omega = omega          # Angular velocity.
+        self.theta0 = theta0        # Initial angle.
+        self.xradius = radius[0]    # x-radius of ellipse path.
         self.yradius = radius[1]
-        self.xc = offset[0]
+        self.xc = offset[0]         # x-coordinate of ellipse path center.
         self.yc = offset[1]
 
         self.theta = self.theta0            # Angle for position on circle.
@@ -62,7 +65,7 @@ class CircleTruck():
 
     def update_pos(self, time_elapsed):
         """Update the position of the simulated truck. """
-        self.theta = self.theta0 + time_elapsed*self.velocity/self.radius
+        self.theta = self.theta0 + time_elapsed*self.omega
 
         self.x = self.xc + self.xradius*math.cos(self.theta)
         self.y = self.yc + self.yradius*math.sin(self.theta)
@@ -94,7 +97,8 @@ class TruckPublisher():
     """Publisher class. Keeps an instance of the mocap or simulation object. """
     def __init__(self, node_name, topic_type, topic_name,
                  update_freq = 20, mocap_used = True,
-                 queue_size = 1, ma = 1):
+                 queue_size = 1, ma = 1,
+                 simw = 0.75, simr = [1.3, 1.3], simc = [0, 0]):
         self.node_name = node_name
         self.topic_type = topic_type
         self.topic_name = topic_name
@@ -102,7 +106,7 @@ class TruckPublisher():
         self.mocap_used = mocap_used
         self.queue_size = queue_size
 
-        circletruck_rad_distance = 0.4
+        circletruck_rad_distance = -0.4
 
         self.time_bw=0
         self.time_bw_prev=self.time_bw
@@ -136,8 +140,9 @@ class TruckPublisher():
             self.tr1 = Truck("TruckVehicle1")
             self.tr2 = Truck("TruckVehicle2")
         else:
-            self.tr1 = CircleTruck()
-            self.tr2 = CircleTruck(circletruck_rad_distance)
+            self.tr1 = CircleTruck(simw, 0, simr, simc)
+            self.tr2 = CircleTruck(
+                simw, circletruck_rad_distance, simr, simc)
 
         print('Publisher running')
         if not self.mocap_used:
@@ -264,6 +269,10 @@ def main():
     topic_type = truckmocap
     node_name = 'truck_pub'
 
+    simw = 0.75         # Angular velocity of simulated trucks.
+    simr = [1.7, 1.2]   # Radii of simulated trucks ellipse path.
+    simc = [0.3, -1.3]  # Center of simulated trucks ellipse path.
+
     # Use simulation if entered 0 as argument. Otherwise use value above.
     try:
         if int(sys.argv[1]) == 0:
@@ -274,7 +283,7 @@ def main():
     # Create and run the publisher.
     publ = TruckPublisher(node_name = node_name, topic_type = topic_type,
         topic_name = topic_name, mocap_used = mocap_used, update_freq = freq,
-        ma = moving_average_num)
+        ma = moving_average_num, simw = simw, simr = simr, simc = simc)
     publ.talker()
 
 if __name__ == '__main__':

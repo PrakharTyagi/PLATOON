@@ -19,7 +19,7 @@ class TruckPlot():
     """Class for GUI that plots the truck trajectories. """
     def __init__(self, root, node_name, topic_type, topic_name,
         filename = 'record', width = 5, height = 5, display_tail = True,
-        win_size = 600, display_path = False):
+        win_size = 600, display_path = False, clear_seconds = 60):
         self.root = root
         self.width = float(width)       # Real width (meters) of the window.
         self.height = float(height)
@@ -45,6 +45,12 @@ class TruckPlot():
         self.yr = 0
         self.xc = 0
         self.yc = 0
+
+        self.clear_seconds = clear_seconds # Clear trajectories periodically.
+        if self.clear_seconds == 0:
+            self.clear_periodically = False
+        else:
+            self.clear_periodically = True
 
         # Stuff for canvas.
         bg_color = 'SlateGray2'
@@ -207,6 +213,9 @@ class TruckPlot():
 
         # Draw the coordinate arrows and coordinate labels in corners.
         self._draw_cf()
+
+        # Start repeated clearing of trajectories.
+        self._clear_trajectories_periodically()
 
 
     def _make_entry(self, framep, background, caption, **options):
@@ -587,6 +596,13 @@ class TruckPlot():
             self.canv.itemconfig(x, state = tk.NORMAL)
 
 
+    def _clear_trajectories_periodically(self):
+        if self.clear_periodically:
+            self._clear_trajectories()
+        self.root.after(
+            self.clear_seconds*1000, self._clear_trajectories_periodically)
+
+
     def _clear_trajectories(self):
         """Clear the saved truck trajectories. """
         self.canv.delete('traj')
@@ -635,9 +651,9 @@ class TruckPlot():
 def main():
     width = 6                   # Width in meters of displayed area.
     height = 6                  # Height in meters.
-    x_radius = 1.6              # Ellipse x-radius.
+    x_radius = 1.7              # Ellipse x-radius.
     y_radius = 1.2              # Ellipse y-radius.
-    center = [0.3, -0.5]        # The coordinates of the center of the ellipse.
+    center = [0.3, -1.3]        # The coordinates of the center of the ellipse.
     pts = 200                   # Number of points on displayed reference path.
     display_tail = True         # If truck trajectories should be displayed.
     filename = 'record'         # Recorded files are saved as filenameNUM.txt
