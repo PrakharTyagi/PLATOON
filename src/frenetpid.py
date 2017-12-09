@@ -1,8 +1,7 @@
 import math
 
 class FrenetPID():
-    def __init__(self, path, k_p = 0, k_i = 0, k_d = 0, sum_limit = 100,
-                    freq = 20):
+    def __init__(self, path, k_p = 0, k_i = 0, k_d = 0, freq = 20):
         # PID parameters.
         self.k_p = k_p
         self.k_i = k_i
@@ -10,7 +9,6 @@ class FrenetPID():
 
         self._ey = 0                    # Current error.
         self._sumy = 0                  # Accumulated error.
-        self.sum_limit = sum_limit      # Limit for accumulated error.
 
         self._freq = freq                # Sampling frequency.
         self._alpha_max = math.pi/6      # Maximum wheel angle alpha.
@@ -31,10 +29,6 @@ class FrenetPID():
         self._ey = self._pt.get_ey([x, y])     # y error (distance from path)
 
         self._sumy = self._sumy + self._ey      # Accumulated error.
-        if self._sumy > self.sum_limit:
-            self._sumy = self.sum_limit
-        if self._sumy < -self.sum_limit:
-            self._sumy = -self.sum_limit
 
         gamma = self._pt.get_gamma(index)
         gamma_p = self._pt.get_gammap(index)
@@ -67,10 +61,6 @@ class FrenetPID():
         self._ey = self._pt.get_ey([x, y])     # y error (distance from path)
 
         self._sumy_alpha = self._sumy_alpha + self._ey      # Accumulated error.
-        if self._sumy_alpha > self.sum_limit:
-            self._sumy_alpha = self.sum_limit
-        if self._sumy_alpha < -self.sum_limit:
-            self._sumy_alpha = -self.sum_limit
 
         gamma = self._pt.get_gamma(index)
         gamma_p = self._pt.get_gammap(index)
@@ -110,7 +100,7 @@ class FrenetPID():
             return -1
 
 
-    def set_pid(self, kp = None, ki = None, kd = None, sum_limit = None):
+    def set_pid(self, kp = None, ki = None, kd = None):
         """Sets the PID parameters. """
         if kp is not None:
             self.k_p = kp
@@ -118,13 +108,19 @@ class FrenetPID():
             self.k_i = ki
         if kd is not None:
             self.k_d = kd
-        if sum_limit is not None:
-            self.sum_limit = sum_limit
+
+        self.reset_sum()
+
+
+    def get_pid(self):
+        """Returns the PID parameters. """
+        return self.k_p, self.k_i, self.k_d
 
 
     def reset_sum(self):
         """Resets the sum for I part in PID controller. """
         self._sumy = 0
+        self._sumy_alpha = 0
 
 
     def update_path(self, path):

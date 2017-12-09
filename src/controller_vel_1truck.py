@@ -13,22 +13,34 @@ class Controller():
     """Class for subscribing to topic mocap data, calculate control input and
     send commands to the truck. """
     def __init__(self, address, node_name, topic_type, topic_name,
-        v = 0, k_p = 0, k_i = 0, k_d = 0, sum_limit = 100):
+        v = 0, k_p = 0, k_i = 0, k_d = 0,
+        k_pv = 0, k_iv = 0, k_dv = 0,
+        e_ref = 0.5, distance_offset = 0.4, pwm_min = 1400):
 
         # List of strings used by the GUI to see which values it can adjust.
-        self.adjustables = ['k_p', 'k_i', 'k_d', 'v', 'sum_limit']
+        self.adjustables = ['k_p', 'k_i', 'k_d',
+            'k_pv', 'k_iv', 'k_dv']
 
         # Velocity of the truck and PID parameters.
-        self.v = v
         self.k_p = k_p
         self.k_i = k_i
         self.k_d = k_d
 
+        self.k_pv = k_pv
+        self.k_iv = k_iv
+        self.k_dv = k_dv
+
         self.sumy = 0               # Accumulated error.
-        self.sum_limit = sum_limit  # Limit for accumulated error.
+
         self.sum_e = 0
 
         self.old_e_rel = 0  # Keep track of previous error value.
+
+        self.e_ref = e_ref
+        self.distance_offset = distance_offset
+        self.pwm_offset = 1450
+        self.pwm_min = pwm_min
+        self.pwm_max = 1500
 
         # Radii and center for reference path ellipse.
         self.xr = 0
@@ -56,9 +68,7 @@ class Controller():
         self.translator = translator.Translator()
         self.sender = trucksender.TruckSender(self.address)
 
-        self.v_pwm = self.translator.get_speed(self.v) # PWM velocity.
-
-        print('\nController initialized.\n')
+        print('\nController_vel_1truck initialized.\n')
 
 
     def _callback(self, data):
@@ -88,10 +98,12 @@ class Controller():
 
             vel = self._get_velocity(x1, y1, vel1, x2, y2, vel2)
 
-            vel_new = 1450 - vel
+            vel_new = self.pwm_offset - vel
 
-            if vel_new < 1420:
-                vel_new = 1420
+            if vel_new < self.pwm_min:
+                vel_new = self.pwm_min
+            if vel_new > self.pwm_max:
+                vel_new = self.pwm_max
 
             print('pwm {:4.0f}'.format(vel_new))
 
@@ -108,10 +120,6 @@ class Controller():
         ey = self.pt.get_ey([x, y])     # y error (distance from path)
 
         self.sumy = self.sumy + ey      # Accumulated error.
-        if self.sumy > self.sum_limit:
-            self.sumy = self.sum_limit
-        if self.sumy < -self.sum_limit:
-            self.sumy = -self.sum_limit
 
         gamma = self.pt.get_gamma(index)
         gamma_p = self.pt.get_gammap(index)
@@ -141,27 +149,21 @@ class Controller():
     def _get_velocity(self, x1, y1, vel1, x2, y2, vel2):
         e_dist = self.pt.get_distance([x1, y1],[x2, y2])
         try:
-            e_time = (e_dist + 0.4) / vel2
+            e_time = (e_dist - self.distance_offset) / vel2
         except Exception as e:
-            e_time = e_dist + 0.4
+            e_time = e_dist
 
-        e_ref = 0.3
-        e_rel = e_ref - e_time
+        e_rel = self.e_ref - e_time
 
         e_p = e_rel - self.old_e_rel
 
         self.old_e_rel = e_rel
 
-        k_p = 10
-        k_i = 1
-        k_d = 5
-        sum_limit = 10
+        k_p = self.k_pv
+        k_i = self.k_iv
+        k_d = self.k_dv
 
         self.sum_e = self.sum_e + e_rel     # Accumulated error.
-        if self.sum_e > sum_limit:
-            self.sum_e = sum_limit
-        if self.sum_e < -sum_limit:
-            self.sum_e = -sum_limit
 
         # PID controller.
         u = - k_p*e_rel - k_d*e_p - k_i * self.sum_e
@@ -208,8 +210,10 @@ class Controller():
             k_p = float(values[0])
             k_i = float(values[1])
             k_d = float(values[2])
-            v = float(values[3])
-            sum_limit = float(values[4])
+
+            k_pv = float(values[3])
+            k_iv = float(values[4])
+            k_dv = float(values[5])
 
         except:
             print('\nInvalid control parameters entered.')
@@ -218,10 +222,12 @@ class Controller():
         self.k_p = k_p
         self.k_i = k_i
         self.k_d = k_d
-        self.v = v
-        self.v_pwm = self.translator.get_speed(self.v)
-        self.sum_limit = sum_limit
         self.sumy = 0
+
+        self.k_pv = k_pv
+        self.k_iv = k_iv
+        self.k_dv = k_dv
+        self.sum_e = 0
 
         print('\nControl parameter changes applied.')
 
@@ -231,8 +237,8 @@ class Controller():
         Returns two lists. The first list is a list of the names/descriptors
         of the adjustable parameters. The second is the current values of those
         parameters. """
-        return self.adjustables, [self.k_p, self.k_i, self.k_d, self.v,
-            self.sum_limit]
+        return self.adjustables, [self.k_p, self.k_i, self.k_d,
+            self.k_pv, self.k_iv, self.k_dv]
 
 
     def set_reference_path(self, radius, center = [0, 0], pts = 400):
@@ -267,7 +273,7 @@ def main(args):
                 address = ('192.168.1.194', 2390)   # Truck address.
     except:
         pass
-    print(address)
+
     # Information for controller subscriber.
     node_name = 'controller_sub'
     topic_name = 'truck_topic'
@@ -284,11 +290,18 @@ def main(args):
     k_p = 0.5
     k_i = -0.02
     k_d = 3
-    sum_limit = 5000    # Limit in accumulated error for I part of PID.
+
+    k_pv = 10
+    k_iv = 1
+    k_dv = 5
+    e_ref = 0.5
+    distance_offset = 0.4
 
     # Initialize controller.
     controller = Controller(address, node_name, topic_type, topic_name,
-        v = v, k_p = k_p, k_i = k_i, k_d = k_d, sum_limit = sum_limit)
+        v = v, k_p = k_p, k_i = k_i, k_d = k_d,
+        k_pv = k_pv, k_iv = k_iv, k_dv = k_dv,
+        e_ref = e_ref, distance_offset = distance_offset)
     # Set reference path.
     controller.set_reference_path([x_radius, y_radius], center)
 

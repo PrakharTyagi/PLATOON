@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Creates controller1 and a GUI for it. Choose truck 1 or 2 by entering the
-# number as argument when running the script. 
+# number as argument when running the script.
 
 import controllerGUI
 import controller1
@@ -38,12 +38,11 @@ def main(args):
     k_p = 0.5
     k_i = -0.02
     k_d = 3
-    sum_limit = 5000    # Limit in accumulated error for I part of PID.
 
     # Initialize controller and GUI.
     controller = controller1.Controller(
         address, node_name, topic_type, topic_name,
-        v = v, k_p = k_p, k_i = k_i, k_d = k_d, sum_limit = sum_limit,
+        v = v, k_p = k_p, k_i = k_i, k_d = k_d,
         truck_id = truck_id)
     controller.set_reference_path([x_radius, y_radius], center)
 

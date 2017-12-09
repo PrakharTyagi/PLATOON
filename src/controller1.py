@@ -13,10 +13,10 @@ class Controller():
     """Class for subscribing to topic mocap data, calculate control input and
     send commands to the truck. """
     def __init__(self, address, node_name, topic_type, topic_name,
-        v = 0, k_p = 0, k_i = 0, k_d = 0, sum_limit = 0, truck_id = 2):
+        v = 0, k_p = 0, k_i = 0, k_d = 0, truck_id = 2):
 
         # List of strings used by the GUI to see which values it can adjust.
-        self.adjustables = ['k_p', 'k_i', 'k_d', 'v', 'sum_limit']
+        self.adjustables = ['k_p', 'k_i', 'k_d', 'v']
 
         # Velocity of the truck and PID parameters.
         self.v = v
@@ -27,7 +27,6 @@ class Controller():
         self.stop_angle = 1500
 
         self.sumy = 0               # Accumulated error.
-        self.sum_limit = sum_limit  # Limit for accumulated error.
 
         self.truck_id = truck_id
 
@@ -102,10 +101,6 @@ class Controller():
         ey = self.pt.get_ey([x, y])     # y error (distance from path)
 
         self.sumy = self.sumy + ey      # Accumulated error.
-        if self.sumy > self.sum_limit:
-            self.sumy = self.sum_limit
-        if self.sumy < -self.sum_limit:
-            self.sumy = -self.sum_limit
 
         gamma = self.pt.get_gamma(index)
         gamma_p = self.pt.get_gammap(index)
@@ -168,7 +163,6 @@ class Controller():
             k_i = float(values[1])
             k_d = float(values[2])
             v = float(values[3])
-            sum_limit = float(values[4])
 
         except:
             print('\nInvalid control parameters entered.')
@@ -179,7 +173,6 @@ class Controller():
         self.k_d = k_d
         self.v = v
         self.v_pwm = self.translator.get_speed(self.v)
-        self.sum_limit = sum_limit
         self.sumy = 0
 
         print('\nControl parameter changes applied.')
@@ -190,8 +183,7 @@ class Controller():
         Returns two lists. The first list is a list of the names/descriptors
         of the adjustable parameters. The second is the current values of those
         parameters. """
-        return self.adjustables, [self.k_p, self.k_i, self.k_d, self.v,
-            self.sum_limit]
+        return self.adjustables, [self.k_p, self.k_i, self.k_d, self.v]
 
 
     def set_reference_path(self, radius, center = [0, 0], pts = 400):
@@ -245,11 +237,10 @@ def main(args):
     k_p = 0.5
     k_i = -0.02
     k_d = 3
-    sum_limit = 5000    # Limit in accumulated error for I part of PID.
 
     # Initialize controller.
     controller = Controller(address, node_name, topic_type, topic_name,
-        v = v, k_p = k_p, k_i = k_i, k_d = k_d, sum_limit = sum_limit,
+        v = v, k_p = k_p, k_i = k_i, k_d = k_d,
         truck_id = truck_id)
 
     # Set reference path.
