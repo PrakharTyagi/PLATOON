@@ -1,0 +1,10 @@
+<launch>
+  <group ns="Truck_Pub">
+    <node pkg="platoon" name="truck_publisher" type="truck_publisher.py"/>
+  </group>
+
+    <node pkg="platoon" name="data_sender" type="datasender.py"/>
+    <node pkg="platoon" name="velocity_controller" type="controller_vel.py"/>
+    <node pkg="platoon" name="truckplot" type="truckplot.py"/>
+    <node pkg="platoon" name="controller" type="ctrl1.py" output="screen"/>
+</launch>
