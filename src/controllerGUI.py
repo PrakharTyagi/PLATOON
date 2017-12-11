@@ -106,37 +106,39 @@ class ControllerGUI():
             self.apply_button.pack(in_ = changes_frame, side = tk.TOP)
 
         # Widgets for changing reference path.
+        try:
+            self.path_label = tk.Label(self.root, text = 'REFERENCE PATH',
+                background = bg_color3)
+            self.path_label.pack(in_ = path_frame, side = tk.TOP)
 
-        self.path_label = tk.Label(self.root, text = 'REFERENCE PATH',
-            background = bg_color3)
-        self.path_label.pack(in_ = path_frame, side = tk.TOP)
+            self.xr_var = tk.StringVar()    # x-radius
+            self.xr_var.set(str(self.controller.pt.xr))
+            self.make_entry(path_frame, bg_color3, 'x_radius',
+                textvariable = self.xr_var)
 
-        self.xr_var = tk.StringVar()    # x-radius
-        self.xr_var.set(str(self.controller.xr))
-        self.make_entry(path_frame, bg_color3, 'x_radius',
-            textvariable = self.xr_var)
+            self.yr_var = tk.StringVar()    # y-radius
+            self.yr_var.set(str(self.controller.pt.yr))
+            self.make_entry(path_frame, bg_color3, 'y_radius',
+                textvariable = self.yr_var)
 
-        self.yr_var = tk.StringVar()    # y-radius
-        self.yr_var.set(str(self.controller.yr))
-        self.make_entry(path_frame, bg_color3, 'y_radius',
-            textvariable = self.yr_var)
+            self.xc_var = tk.StringVar()    # x-coordinate of center
+            self.xc_var.set(str(self.controller.pt.xc))
+            self.make_entry(path_frame, bg_color3, 'x_offset',
+                textvariable = self.xc_var)
 
-        self.xc_var = tk.StringVar()    # x-coordinate of center
-        self.xc_var.set(str(self.controller.xc))
-        self.make_entry(path_frame, bg_color3, 'x_offset',
-            textvariable = self.xc_var)
+            self.yc_var = tk.StringVar()    # y-coordinate of center.
+            self.yc_var.set(str(self.controller.pt.yc))
+            self.make_entry(path_frame, bg_color3, 'y_offset',
+                textvariable = self.yc_var)
 
-        self.yc_var = tk.StringVar()    # y-coordinate of center.
-        self.yc_var.set(str(self.controller.yc))
-        self.make_entry(path_frame, bg_color3, 'y_offset',
-            textvariable = self.yc_var)
-
-        # Create button for applying the changes to the reference path.
-        self.apply_path_button = tk.Button(self.root,
-            text = 'Apply new\nreference path', command = self.apply_path,
-            width = w1, height = 2, background = 'medium sea green',
-            activebackground = 'sea green')
-        self.apply_path_button.pack(in_ = path_frame, side = tk.TOP)
+            # Create button for applying the changes to the reference path.
+            self.apply_path_button = tk.Button(self.root,
+                text = 'Apply new\nreference path', command = self.apply_path,
+                width = w1, height = 2, background = 'medium sea green',
+                activebackground = 'sea green')
+            self.apply_path_button.pack(in_ = path_frame, side = tk.TOP)
+        except Exception as e:
+            print('Could not display reference path panel in GUI: {}'.format(e))
 
         # Actions for closing the window and pressing ctrl-C on the window.
         self.root.protocol('WM_DELETE_WINDOW', self.quit1)
@@ -231,7 +233,7 @@ class ControllerGUI():
                 print('New reference path applied.')
         except Exception as e:
             print('Invalid values entered.')
-            
+
         try:
             self.xr_var.set(self.controller.pt.xr)
             self.yr_var.set(self.controller.pt.yr)
