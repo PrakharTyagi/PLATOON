@@ -23,7 +23,8 @@ class Controller():
         self.adjustables = ['v1',
             'k_p1', 'k_i1', 'k_d1',
             'k_p2', 'k_i2', 'k_d2',
-            'k_pv', 'k_iv', 'k_dv']
+            'k_pv', 'k_iv', 'k_dv',
+            'e_ref']
 
         # Velocity controller PID parameters.
         self.k_pv = k_pv
@@ -132,7 +133,7 @@ class Controller():
         try:
             e_time = (e_dist - self.distance_offset) / vel2
         except:
-            e_time = e_dist
+            e_time = e_dist - self.distance_offset
 
         e_rel = self.e_ref - e_time
 
@@ -203,6 +204,7 @@ class Controller():
             k_pv = float(values[7])
             k_iv = float(values[8])
             k_dv = float(values[9])
+            e_ref = float(values[10])
 
         except:
             print('\nInvalid control parameters entered.')
@@ -218,6 +220,8 @@ class Controller():
         self.k_iv = k_iv
         self.k_dv = k_dv
 
+        self.e_ref = e_ref
+
         print('\nControl parameter changes applied.')
 
 
@@ -232,7 +236,8 @@ class Controller():
         return self.adjustables, [self.v1,
             k_p1, k_i1, k_d1,
             k_p2, k_i2, k_d2,
-            self.k_pv, self.k_iv, self.k_dv]
+            self.k_pv, self.k_iv, self.k_dv,
+            self.e_ref]
 
 
     def set_reference_path(self, radius, center = [0, 0], pts = 400):
