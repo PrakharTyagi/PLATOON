@@ -198,6 +198,12 @@ class ControllerGUI():
         self.controller.stop()
         self.running_text_var.set('Controller stopped\n')
         self.running_label.config(foreground = 'grey')
+        self.root.after(100, self.stop_again)
+
+    def stop_again(self):
+        """Method for calling the controller's stop method a second time to
+        make sure that the truck stops. """
+        self.controller.stop()
 
 
     def apply(self):

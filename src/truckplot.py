@@ -18,8 +18,9 @@ import os
 class TruckPlot():
     """Class for GUI that plots the truck trajectories. """
     def __init__(self, root, node_name, topic_type, topic_name,
-        filename = 'record', width = 5, height = 5, display_tail = True,
-        win_size = 600, display_path = False, clear_seconds = 60):
+        filename = 'record', width = 5, height = 5, display_tail = False,
+        win_size = 600, display_path = False, clear_seconds = 60,
+        display_closest = False):
         self.root = root
         self.width = float(width)       # Real width (meters) of the window.
         self.height = float(height)
@@ -46,6 +47,8 @@ class TruckPlot():
         self.xc = 0
         self.yc = 0
 
+        self.display_closest = display_closest
+
         self.clear_seconds = clear_seconds # Clear trajectories periodically.
         if self.clear_seconds == 0:
             self.clear_periodically = False
@@ -56,8 +59,8 @@ class TruckPlot():
         bg_color = 'SlateGray2'
         w1 = 15
         ypad = 10
-        self.truckl = 0.2
-        self.truckw = 0.1
+        self.truckl = 0.27
+        self.truckw = 0.15
 
         # Setup subscriber node.
         rospy.init_node(self.node_name, anonymous = True)
@@ -303,6 +306,7 @@ class TruckPlot():
                 # Draw trucks and their trajectories.
                 self._move_trucks()
                 self._draw_trajectories()
+                self._draw_closest_points()
 
             except Exception as e:
                 print('Error in callback: {}'.format(e))
@@ -381,6 +385,31 @@ class TruckPlot():
                     [self.new_data[i][0], self.new_data[i][1]]],
                     join = False, clr = self.truck_colors[i], tag = 'traj',
                     state = state)
+
+
+    def _draw_closest_points(self):
+        """Draw the closest point on the reference path for each truck. """
+        self.canv.delete('closest')
+
+        if self.display_closest and self.display_path:
+
+            for i in range(len(self.trucks)):
+                if self.truck_active[i]:
+                    self._draw_closest_point(
+                        [self.new_data[i][0], self.new_data[i][1]],
+                        self.truck_colors[i])
+
+
+    def _draw_closest_point(self, xy, clr = 'blue'):
+        """Draw the closest point on the path for coordinates xy. """
+        l = 10
+        _, closest = self.pt.get_closest(xy)
+        xp, yp = self._real_to_pixel(closest[0], closest[1])
+
+        self.canv.create_line(xp - l, yp - l, xp + l, yp + l, fill = clr,
+            tag = 'closest', width = 2)
+        self.canv.create_line(xp - l, yp + l, xp + l, yp - l, fill = clr,
+            tag = 'closest', width = 2)
 
 
     def _plot_sequence(self, seq, join = False, clr = 'blue', width = 2,
@@ -649,29 +678,28 @@ class TruckPlot():
 
 
 def main():
+    node_name = 'truckplot_sub' # Name of subscriber node.
+    topic_name = 'truck_topic'  # Name of topic the node subscribes to.
+    topic_type = truckmocap     # The type of the topic.
+
     width = 6                   # Width in meters of displayed area.
     height = 6                  # Height in meters.
     x_radius = 1.7              # Ellipse x-radius.
     y_radius = 1.2              # Ellipse y-radius.
     center = [0.3, -1.3]        # The coordinates of the center of the ellipse.
     pts = 200                   # Number of points on displayed reference path.
-    display_tail = True         # If truck trajectories should be displayed.
-    filename = 'record'         # Recorded files are saved as filenameNUM.txt
-    node_name = 'truckplot_sub' # Name of subscriber node.
-    topic_name = 'truck_topic'       # Name of topic it subscribes to.
-    topic_type = truckmocap     # The type of the topic.
+
+    display_closest = False      # If closest path points are drawn.
 
     root = tk.Tk()
     try:
         truckplot = TruckPlot(root, node_name, topic_type, topic_name,
-            filename = filename, width = width, height = height)
+            width = width, height = height,
+            display_closest = display_closest)
 
         truckplot.gen_circle_path([x_radius, y_radius], pts, center = center)
 
-        try:
-            root.mainloop()
-        except KeyboardInterrupt:
-            print('Interrupted with keyboard.')
+        root.mainloop()
 
     except RuntimeError as e:
         print('Error when running GUI: {}'.format(e))
