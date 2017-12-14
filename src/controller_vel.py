@@ -20,7 +20,8 @@ class Controller():
         v = 0, k_p1 = 0, k_i1 = 0, k_d1 = 0,
         k_p2 = 0, k_i2 = 0, k_d2 = 0,
         k_pv = 0, k_iv = 0, k_dv = 0,
-        e_ref = 0.5, distance_offset = 0.4, pwm_min = 1400, follower = 2):
+        e_ref = 0.5, distance_offset = 0.4, pwm_min = 1400, pwm_max = 1460,
+        follower = 2, vlim = 0.5):
 
         # List of strings used by the GUI to see which values it can adjust.
         self.adjustables = ['v_lead',
@@ -43,9 +44,11 @@ class Controller():
         self.e_ref = e_ref          #
         self.distance_offset = distance_offset # Compensate for truck lengths.
         self.pwm_min = pwm_min      # Minimum safe pwm.
-        self.pwm_max = 1500         # 1500 max to prevent backwards driving.
+        self.pwm_max = pwm_max      # 1500 max to prevent backwards driving.
 
         self.old_e_rel = 0          # Used for derivative of control error.
+
+        self.vlim = vlim            # Min lead speed for which follower acts.
 
         # Radii and center for reference path ellipse.
         self.xr = 0
@@ -111,21 +114,23 @@ class Controller():
 
         if self.follower == 2:
             v1_pwm = v_lead_pwm
-            v2_pwm = v1_pwm - self._get_velocity(x1, y1, vel1, x2, y2, vel2)
+            v1_pwm = self._bound_pwm(v1_pwm)
+
+            if vel1 < self.vlim:
+                v2_pwm = 1500
+            else:
+                v2_pwm = v1_pwm - self._get_velocity(x1, y1, vel1, x2, y2, vel2)
+                v2_pwm = self._bound_pwm(v2_pwm)
 
         else:
             v2_pwm = v_lead_pwm
-            v1_pwm = v2_pwm - self._get_velocity(x2, y2, vel2, x1, y1, vel1)
 
-        if v2_pwm < self.pwm_min:
-            v2_pwm = self.pwm_min
-        if v2_pwm > self.pwm_max:
-            v2_pwm = self.pwm_max
+            if vel2 < self.vlim:
+                v1_pwm = 1500
+            else:
+                v1_pwm = v2_pwm - self._get_velocity(x2, y2, vel2, x1, y1, vel1)
+                v2_pwm = self._bound_pwm(v2_pwm)
 
-        if v1_pwm < self.pwm_min:
-            v1_pwm = self.pwm_min
-        if v1_pwm > self.pwm_max:
-            v1_pwm = self.pwm_max
 
         print('pwm1: {:.0f}, pwm2: {:.0f}'.format(v1_pwm, v2_pwm))
 
@@ -134,6 +139,17 @@ class Controller():
 
         self.stop_angle1 = angle1
         self.stop_angle2 = angle2
+
+
+    def _bound_pwm(self, pwm):
+        """Returns a pwm signal within the minimum and maximum values. """
+        if pwm < self.pwm_min:
+            pwm = self.pwm_min
+            
+        if pwm > self.pwm_max:
+            pwm = self.pwm_max
+
+        return pwm
 
 
     def _get_velocity(self, x1, y1, vel1, x2, y2, vel2):
@@ -156,6 +172,8 @@ class Controller():
 
         # PID controller.
         u = - k_p*e_rel - k_d*e_p - k_i * self.sum_e
+        if e_rel > 0:
+            u = u - 10*k_p*e_rel
 
         vel = u
 
