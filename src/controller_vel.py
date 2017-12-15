@@ -124,12 +124,13 @@ class Controller():
 
         else:
             v2_pwm = v_lead_pwm
+            v2_pwm = self._bound_pwm(v2_pwm)
 
             if vel2 < self.vlim:
                 v1_pwm = 1500
             else:
                 v1_pwm = v2_pwm - self._get_velocity(x2, y2, vel2, x1, y1, vel1)
-                v2_pwm = self._bound_pwm(v2_pwm)
+                v1_pwm = self._bound_pwm(v1_pwm)
 
 
         print('pwm1: {:.0f}, pwm2: {:.0f}'.format(v1_pwm, v2_pwm))
@@ -145,7 +146,7 @@ class Controller():
         """Returns a pwm signal within the minimum and maximum values. """
         if pwm < self.pwm_min:
             pwm = self.pwm_min
-            
+
         if pwm > self.pwm_max:
             pwm = self.pwm_max
 
