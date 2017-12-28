@@ -2,9 +2,7 @@
 
 import controllerGUI
 
-import controller1
-import controller_vel
-import controller_vel_1truck
+import controller_platooning
 
 from platoon.msg import truckmocap
 from platoon.msg import truckcontrol
@@ -50,7 +48,7 @@ def main(args):
     e_ref = 0.5
     distance_offset = 0.4
 
-    vel = controller_vel.Controller(
+    vel = controller_platooning.Controller(
         node_name, mocap_topic_type, mocap_topic_name,
         truck_topic_type, truck_topic_name,
         v_ref, k_p, k_i, k_d, k_p, k_i, k_d,

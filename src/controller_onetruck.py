@@ -3,16 +3,19 @@
 import rospy
 import math
 import sys
+import time
 
 from platoon.msg import truckmocap
+from platoon.msg import truckcontrol
 import path
-import trucksender
 import translator
+import frenetpid
 
 class Controller():
     """Class for subscribing to topic mocap data, calculate control input and
     send commands to the truck. """
-    def __init__(self, address, node_name, topic_type, topic_name,
+    def __init__(self, node_name, topic_type, topic_name,
+        truck_topic_type, truck_topic_name,
         v = 0, k_p = 0, k_i = 0, k_d = 0, truck_id = 2):
 
         # List of strings used by the GUI to see which values it can adjust.
@@ -20,9 +23,6 @@ class Controller():
 
         # Velocity of the truck and PID parameters.
         self.v = v
-        self.k_p = k_p
-        self.k_i = k_i
-        self.k_d = k_d
 
         self.stop_angle = 1500
 
@@ -41,18 +41,20 @@ class Controller():
         self.topic_name = topic_name
         self.topic_type = topic_type
 
-        self.address = address  # IP-address of the truck to be controlled.
-
         self.running = False    # Controlling if controller is running or not.
 
         # Setup subscriber node.
         rospy.init_node(self.node_name, anonymous = True)
         rospy.Subscriber(self.topic_name, self.topic_type, self._callback)
+        self.pub = rospy.Publisher(truck_topic_name, truck_topic_type,
+            queue_size = 1)
 
         # Create reference path object, translator, and sender.
         self.pt = path.Path()
         self.translator = translator.Translator()
-        self.sender = trucksender.TruckSender(self.address)
+
+        # Create frenet controller.
+        self.frenet = frenetpid.FrenetPID(self.pt, k_p, k_i, k_d)
 
         self.v_pwm = self.translator.get_speed(self.v) # PWM velocity.
 
@@ -82,63 +84,24 @@ class Controller():
         truck. """
         if self.running:
 
-            omega = self._get_omega(x, y, yaw, vel)
+            omega = self.frenet.get_omega(x, y, yaw, vel)
 
             angle = int(self.translator.get_angle(omega, vel))
             self.v_pwm = self.translator.get_speed(self.v) # pwm value.
 
-            self.sender.send_data(self.v_pwm, angle)
-            print('pwm {}'.format(self.v_pwm))
+            self.pub.publish(self.truck_id, self.v_pwm, angle)
 
             self.stop_angle = angle
 
 
-    def _get_omega(self, x, y, yaw, vel):
-        """Calculate the control input omega. """
-
-        index, closest = self.pt.get_closest([x, y]) # Closest point on path.
-
-        ey = self.pt.get_ey([x, y])     # y error (distance from path)
-
-        self.sumy = self.sumy + ey      # Accumulated error.
-
-        gamma = self.pt.get_gamma(index)
-        gamma_p = self.pt.get_gammap(index)
-        gamma_pp = self.pt.get_gammapp(index)
-
-        cos_t = math.cos(yaw - gamma)     # cos(theta)
-        sin_t = math.sin(yaw - gamma)     # sin(theta)
-
-        # y prime (derivative w.r.t. path).
-        yp = math.tan(yaw - gamma)*(1 - gamma_p*ey)*self._sign(
-            vel*cos_t/(1 - gamma_p*ey))
-
-        # PID controller.
-        u = - self.k_p*ey - self.k_d*yp - self.k_i * self.sumy
-
-        # Feedback linearization.
-        omega = vel*cos_t/(1 - gamma_p*ey) * (u*cos_t**2/(1 - gamma_p*ey) +
-                                gamma_p*(1 + sin_t**2) +
-                                gamma_pp*ey*cos_t*sin_t/(1 - gamma_p*ey))
-
-        print(
-            'Ctrl error: {:5.2f},  sum error: {:7.2f},  omega: {:5.2f}'.format(
-            ey, self.sumy, omega)),
-
-        return omega
-
-
-    def _sign(self, x):
-        """Returns the sign of x. """
-        if x > 0:
-            return 1
-        else:
-            return -1
-
-
     def stop(self):
         """Stops/pauses the controller. """
-        self.sender.stop_truck(self.stop_angle)
+        t = 0.05
+
+        self.pub.publish(self.truck_id, 1500, self.stop_angle)
+        time.sleep(t)
+        self.pub.publish(self.truck_id, 1500, self.stop_angle)
+
         if self.running:
             self.running = False
             print('Controller stopped.\n')
@@ -168,9 +131,7 @@ class Controller():
             print('\nInvalid control parameters entered.')
             return
 
-        self.k_p = k_p
-        self.k_i = k_i
-        self.k_d = k_d
+        self.frenet.set_pid(k_p, k_i, k_d)
         self.v = v
         self.v_pwm = self.translator.get_speed(self.v)
         self.sumy = 0
@@ -183,7 +144,9 @@ class Controller():
         Returns two lists. The first list is a list of the names/descriptors
         of the adjustable parameters. The second is the current values of those
         parameters. """
-        return self.adjustables, [self.k_p, self.k_i, self.k_d, self.v]
+        k_p, k_i, k_d = self.frenet.get_pid()
+
+        return self.adjustables, [k_p, k_i, k_d, self.v]
 
 
     def set_reference_path(self, radius, center = [0, 0], pts = 400):
@@ -212,11 +175,9 @@ class Controller():
 
 
 def main(args):
-    address = ('192.168.1.193', 2390)   # Truck address.
     truck_id = 2
     try:
         if int(args[1]) == 1:
-                address = ('192.168.1.194', 2390)   # Truck address.
                 truck_id = 1
     except:
         pass
@@ -225,6 +186,9 @@ def main(args):
     node_name = 'controller_sub'
     topic_name = 'truck_topic'
     topic_type = truckmocap
+
+    truck_topic_name = 'truck_control'
+    truck_topic_type = truckcontrol
 
     # Data for controller reference path.
     x_radius = 1.7
@@ -239,7 +203,9 @@ def main(args):
     k_d = 3
 
     # Initialize controller.
-    controller = Controller(address, node_name, topic_type, topic_name,
+    controller = Controller(
+        node_name, topic_type, topic_name,
+        truck_topic_type, truck_topic_name,
         v = v, k_p = k_p, k_i = k_i, k_d = k_d,
         truck_id = truck_id)
 
