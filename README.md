@@ -1,8 +1,10 @@
 # Networked Assisted Platooning - Automatic Control, Project Course
 
+
 ### Requirements
 - ROS Kinetic
 - Python 2.7
+
 
 ### Setup
 
@@ -19,6 +21,7 @@
 	$ cd ..
 	$ catkin_make
 	$ source devel/setup.bash
+
 
 ### Running
 
@@ -53,6 +56,46 @@ One could also simply run platooning.py but keeping the follower truck turned of
 - If the IP-address to the MoCap has changed, this needs to be adjusted in truck_publisher.py.
 - The reference path plotted by truckplot.py is only for visual aid. Changing the path in this GUI will not affect the controller. 
 
+
 ### Code structure
 
+#### truck_publisher.py
+Continually fetches truck positions from the MoCap system and publishes the positions to a topic. Uses mocap_source_2.py to communicate with MoCap. 
 
+#### datasender.py
+Subscribes to a topic. The data published on the topic consists of the truck ID, and PWM signals for the motor and steering servo. When the subscriber receives data it sends it to the specified truck with sockets.
+
+#### platooning.py
+Creates a controller_platooning instance and a controllerGUI that displays the controller.
+
+#### onetruck.py
+Similar to platooning.py.
+
+#### controller_platooning.py
+A controller for platooning. Subscribes to the topic that publishes the truck positions (truck_publisher.py), and publishes the control inputs to the topic that accepts data to be sent to the trucks (datasender.py). 
+Keeps a frenetpid instance for each truck that handles path following. Uses translator.py to translate the frenetpid output to PWM values that are sent to the truck.
+Uses PID to control the distance between the trucks in seconds. The distance is calculated using the truck positions and the PID controller gives the motor PWM for the follower truck.
+The class follows a certain structure so that the GUI can communicate with it. 
+
+#### controller_onetruck.py
+Similar to platooning.py.
+Only one truck is considered so there is no speed regulation. The speed is kept constant and the truck follows the path using frenetpid.
+
+#### frenetpid.py
+Class for path tracking for one truck. Keeps a path instance for the reference path. Uses feedback linearization and PID in order to track the path. When calculating a control signal the input is the truck position and velocity and the output is a desired angular velocity of the truck. 
+
+#### controllerGUI.py
+A GUI for starting and stopping the controllers as well as changing control parameters on the fly. Keeps a controller instance that is on a certain format in order to affect the controller. For example, controller_platooning.py and controller_onetruck.py both contain the methods stop() and start() which the GUI can call, and the logic is handled in the controller classes. 
+
+#### path.py
+Class for keeping the reference path, which is a list of coordinates. Contains methods for various math operations related to the path, e.g. generating an elliptical path, calculate orthgonal distance to path, tangents, etc. 
+Also contains a class for defining a path freehand in a GUI. 
+
+#### truckplot.py
+GUI for plotting the current truck positions and past trajectories. Subscribes to the topic that truck_publisher publishes to.
+
+#### translator.py
+Class for translating between from desired velocity and wheel angles to PWM values. For this it uses some measured values and interpolates to get the requested value. 
+
+#### mocap_source_2.py
+Provided to us at the start of the project. Class for communication with the MoCap system.
