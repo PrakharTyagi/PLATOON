@@ -49,7 +49,7 @@ To only run one truck that follows the path, replace the fourth command with
 
 	$ rosrun platoon onetruck.py truck_id
 where truck_id is the ID of the truck. 
-One could also simply run platooning.py but keeping the follower truck turned off. 
+One could also simply run platooning.py but keep the follower truck turned off. 
 
 #### Notes
 - At the time of writing, the car with orange sides has ID 1 and the one with white sides ID 2. The IDs are determined by the IP-addresses of the trucks. If the IP-addresses have been changed, this needs to be adjusted in datasender.py.
@@ -66,15 +66,18 @@ Continually fetches truck positions from the MoCap system and publishes the posi
 Subscribes to a topic. The data published on the topic consists of the truck ID, and PWM signals for the motor and steering servo. When the subscriber receives data it sends it to the specified truck with sockets.
 
 #### platooning.py
-Creates a controller_platooning instance and a controllerGUI that displays the controller.
+Creates a controller_platooning instance and a controllerGUI for interacting with the controller.
 
 #### onetruck.py
 Similar to platooning.py.
 
 #### controller_platooning.py
 A controller for platooning. Subscribes to the topic that publishes the truck positions (truck_publisher.py), and publishes the control inputs to the topic that accepts data to be sent to the trucks (datasender.py). 
+
 Keeps a frenetpid instance for each truck that handles path following. Uses translator.py to translate the frenetpid output to PWM values that are sent to the truck.
+
 Uses PID to control the distance between the trucks in seconds. The distance is calculated using the truck positions and the PID controller gives the motor PWM for the follower truck.
+
 The class follows a certain structure so that the GUI can communicate with it. 
 
 #### controller_onetruck.py
@@ -85,10 +88,11 @@ Only one truck is considered so there is no speed regulation. The speed is kept 
 Class for path tracking for one truck. Keeps a path instance for the reference path. Uses feedback linearization and PID in order to track the path. When calculating a control signal the input is the truck position and velocity and the output is a desired angular velocity of the truck. 
 
 #### controllerGUI.py
-A GUI for starting and stopping the controllers as well as changing control parameters on the fly. Keeps a controller instance that is on a certain format in order to affect the controller. For example, controller_platooning.py and controller_onetruck.py both contain the methods stop() and start() which the GUI can call, and the logic is handled in the controller classes. 
+A GUI for starting and stopping the controllers as well as changing control parameters on the fly. Keeps a controller instance that needs to be on a certain format. For example, controller_platooning.py and controller_onetruck.py both contain the methods stop() and start() which the GUI can call, but the logic is handled in the controller classes themselves. 
 
 #### path.py
 Class for keeping the reference path, which is a list of coordinates. Contains methods for various math operations related to the path, e.g. generating an elliptical path, calculate orthgonal distance to path, tangents, etc. 
+
 Also contains a class for defining a path freehand in a GUI. 
 
 #### truckplot.py
