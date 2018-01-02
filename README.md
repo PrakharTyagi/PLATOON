@@ -1,4 +1,7 @@
-# Networked Assisted Platooning - Automatic Control, Project Course
+# Networked Assisted Platooning Project
+A project carried out in the course "EL2425  Automatic Control, Project Course, Smaller Course" at KTH, autumn semester 2017.
+
+The project consisted of driving two small-scale trucks in a platoon. 
 
 
 ### Requirements
