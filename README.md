@@ -24,6 +24,7 @@
 
 #### Platooning
 To run platooning, execute the following commands in separate terminal windows:
+
 	$ roscore
 	$ rosrun platoon truck_publisher.py
 	$ rosrun platoon datasender.py
@@ -42,6 +43,7 @@ What this does:
 
 #### Running a single truck
 To only run one truck that follows the path, replace the fourth command with 
+
 	$ rosrun platoon onetruck.py truck_id
 where truck_id is the ID of the truck. 
 One could also simply run platooning.py but keeping the follower truck turned off. 
