@@ -79,8 +79,8 @@ class CircleTruck():
 
 class Truck:
     """Class for getting data from Mocap. """
-    def __init__(self,truck_name):
-        self.mocap = Mocap(host = '192.168.1.10', info = 1)
+    def __init__(self,truck_name, mocap_address):
+        self.mocap = Mocap(host = mocap_address, info = 1)
         self.mocap_body = self.mocap.get_id_from_name(truck_name)
 
     def get_values(self):
@@ -96,6 +96,8 @@ class Truck:
 class TruckPublisher():
     """Publisher class. Keeps an instance of the mocap or simulation object. """
     def __init__(self, node_name, topic_type, topic_name,
+                 mocap_address = '192.168.1.10', truck_name1 = 'TruckVehicle1',
+                 truck_name2 = 'TruckVehicle2',
                  update_freq = 20, mocap_used = True,
                  queue_size = 1, ma = 1,
                  simw = 0.75, simr = [1.3, 1.3], simc = [0, 0]):
@@ -137,8 +139,8 @@ class TruckPublisher():
         self.init_time = time.time()
 
         if self.mocap_used:
-            self.tr1 = Truck("TruckVehicle1")
-            self.tr2 = Truck("TruckVehicle2")
+            self.tr1 = Truck(truck_name1, mocap_address)
+            self.tr2 = Truck(truck_name2, mocap_address)
         else:
             self.tr1 = CircleTruck(simw, 0, simr, simc)
             self.tr2 = CircleTruck(
@@ -159,8 +161,6 @@ class TruckPublisher():
             self.time_bw=(rospy.get_time())
 
             tid_mellan=(self.time_bw-self.time_bw_prev) #tid mellan datainhamtningar
-            #print(tid_mellan)
-
 
             if not self.mocap_used:
                 try:
@@ -179,7 +179,7 @@ class TruckPublisher():
                 self.yaw1_pos=yaw1
 
             except:
-                print("-----\nMissade forsta!")
+                print("Lost truck 1")
                 self.x1_pos=self.x1_old
                 self.y1_pos=self.y1_old
                 self.yaw1_pos=self.yaw1_old
@@ -196,7 +196,7 @@ class TruckPublisher():
                 self.yaw2_pos=yaw2
 
             except:
-                print("-----\nMissade andra!")
+                print("Lost truck 2")
                 self.x2_pos=self.x2_old
                 self.y2_pos=self.y2_old
                 self.yaw2_pos=self.yaw2_old
@@ -235,7 +235,6 @@ class TruckPublisher():
             v_y1_old = v_y1
 
         if self.x2_pos==self.x1_old:
-            #print("scener")
             try:
                 v_x2 = v_x2_old
                 v_y2 = v_y2_old
@@ -248,8 +247,6 @@ class TruckPublisher():
             v_y2=(self.y2_pos - self.y2_old)/tid_mellan
             v_x2_old = v_x2
             v_y2_old = v_y2
-
-
 
         self.v_tot1=math.sqrt(v_x1**2+v_y1**2)
 
@@ -269,6 +266,10 @@ def main():
     topic_type = truckmocap
     node_name = 'truck_pub'
 
+    mocap_address = '192.168.1.10'  # MoCap PC IP-address.
+    truck_name1 = 'TruckVehicle1'   # MoCap name of truck 1.
+    truck_name2 = 'TruckVehicle2'   # MoCap name of truck 2.
+
     simw = 0.75         # Angular velocity of simulated trucks.
     simr = [1.7, 1.2]   # Radii of simulated trucks ellipse path.
     simc = [0.3, -1.3]  # Center of simulated trucks ellipse path.
@@ -282,7 +283,9 @@ def main():
 
     # Create and run the publisher.
     publ = TruckPublisher(node_name = node_name, topic_type = topic_type,
-        topic_name = topic_name, mocap_used = mocap_used, update_freq = freq,
+        topic_name = topic_name, mocap_address = mocap_address,
+        truck_name1 = truck_name1, truck_name2 = truck_name2,
+        mocap_used = mocap_used, update_freq = freq,
         ma = moving_average_num, simw = simw, simr = simr, simc = simc)
     publ.talker()
 
